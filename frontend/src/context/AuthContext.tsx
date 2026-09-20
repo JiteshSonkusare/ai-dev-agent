@@ -5,7 +5,7 @@ interface AuthUser {
   id: string
   email: string
   name: string
-  project_id: string
+  role: string
   github_username: string | null
   github_email: string | null
 }
@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) setSessionToken(token)
   }, [token])
 
-  // Validate session on app load
   useEffect(() => {
     async function validateSession() {
       const storedToken = localStorage.getItem(TOKEN_KEY)
@@ -49,11 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const profile = await api.getMe()
         const u: AuthUser = {
-          id: profile.id,
-          email: profile.email,
-          name: profile.name,
-          project_id: profile.project_id ?? '',
-          github_username: profile.github_username,
+          id: profile.id, email: profile.email, name: profile.name,
+          role: profile.role, github_username: profile.github_username,
           github_email: profile.github_email,
         }
         setUser(u)
@@ -73,12 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function persist(resp: AuthResponse) {
     const u: AuthUser = {
-      id: resp.user_id,
-      email: resp.email,
-      name: resp.name,
-      project_id: resp.project_id,
-      github_username: null,
-      github_email: null,
+      id: resp.user_id, email: resp.email, name: resp.name,
+      role: resp.role, github_username: null, github_email: null,
     }
     setUser(u)
     setToken(resp.token)
@@ -90,8 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string) {
     setLoading(true)
     try {
-      const resp = await api.login(email, password)
-      persist(resp)
+      persist(await api.login(email, password))
     } finally {
       setLoading(false)
     }
@@ -112,18 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const profile = await api.getMe()
       const u: AuthUser = {
-        id: profile.id,
-        email: profile.email,
-        name: profile.name,
-        project_id: profile.project_id ?? '',
-        github_username: profile.github_username,
+        id: profile.id, email: profile.email, name: profile.name,
+        role: profile.role, github_username: profile.github_username,
         github_email: profile.github_email,
       }
       setUser(u)
       localStorage.setItem(USER_KEY, JSON.stringify(u))
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
   function logout() {

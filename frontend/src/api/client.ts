@@ -37,7 +37,7 @@ export interface AuthResponse {
   user_id: string
   email: string
   name: string
-  project_id: string
+  role: string
 }
 
 export interface OrgInfo {
@@ -110,9 +110,9 @@ export interface UserProfile {
   id: string
   email: string
   name: string
+  role: string
   github_username: string | null
   github_email: string | null
-  project_id: string | null
   created_at: string
 }
 
@@ -125,6 +125,24 @@ export interface UpdateProfilePayload {
 export interface ChangePasswordPayload {
   current_password: string
   new_password: string
+}
+
+// ── Admin types ─────────────────────────────────────────────────────────────
+
+export interface CreateUserPayload {
+  email: string
+  name: string
+  password: string
+  role: string
+}
+
+export interface UserListItem {
+  id: string
+  email: string
+  name: string
+  role: string
+  github_username: string | null
+  created_at: string
 }
 
 // ── Skill Content types ─────────────────────────────────────────────────────
@@ -371,32 +389,28 @@ export const api = {
   changePassword: (payload: ChangePasswordPayload) =>
     http.post('/auth/me/password', payload).then(r => r.data),
 
-  // Orgs
-  createOrg: (name: string, slug: string) =>
-    http.post<OrgInfo>('/orgs', { name, slug }).then(r => r.data),
+  // Admin user management
+  listUsers: () =>
+    http.get<UserListItem[]>('/auth/admin/users').then(r => r.data),
 
-  // Projects
-  listProjects: (orgId: string) =>
-    http.get<ProjectInfo[]>(`/orgs/${orgId}/projects`).then(r => r.data),
+  createUser: (payload: CreateUserPayload) =>
+    http.post<UserListItem>('/auth/admin/users', payload).then(r => r.data),
 
-  createProject: (orgId: string, name: string, description?: string) =>
-    http.post<ProjectInfo>(`/orgs/${orgId}/projects`, { name, description: description ?? '' }).then(r => r.data),
+  deleteUser: (userId: string) =>
+    http.delete(`/auth/admin/users/${userId}`).then(r => r.data),
 
-  addProjectMember: (projectId: string, email: string, role: string) =>
-    http.post<ProjectMemberInfo>(`/projects/${projectId}/members`, { email, role }).then(r => r.data),
+  // Connections (user-scoped)
+  listConnections: () =>
+    http.get<ConnectionInfo[]>('/connections').then(r => r.data),
 
-  // Connections
-  listConnections: (projectId: string) =>
-    http.get<ConnectionInfo[]>(`/projects/${projectId}/connections`).then(r => r.data),
+  createConnection: (payload: CreateConnectionPayload) =>
+    http.post('/connections', payload).then(r => r.data),
 
-  createConnection: (projectId: string, payload: CreateConnectionPayload) =>
-    http.post(`/projects/${projectId}/connections`, payload).then(r => r.data),
+  deleteConnection: (connId: string) =>
+    http.delete(`/connections/${connId}`).then(r => r.data),
 
-  deleteConnection: (projectId: string, connId: string) =>
-    http.delete(`/projects/${projectId}/connections/${connId}`).then(r => r.data),
-
-  testConnection: (projectId: string, connId: string) =>
-    http.get<{ status: string; detail?: string }>(`/projects/${projectId}/connections/${connId}/test`).then(r => r.data),
+  testConnection: (connId: string) =>
+    http.get<{ status: string; detail?: string }>(`/connections/${connId}/test`).then(r => r.data),
 
   // Skills Repos
   listSkillsRepos: (projectId: string) =>
@@ -411,18 +425,18 @@ export const api = {
   discoverSkills: (projectId: string, repoId: string) =>
     http.get<{ skills: SkillInfo[] }>(`/projects/${projectId}/skills-repos/${repoId}/skills`).then(r => r.data),
 
-  // Skills Content (DB-stored .md skills)
-  listSkillContent: (projectId: string) =>
-    http.get<SkillContent[]>(`/projects/${projectId}/skills`).then(r => r.data),
+  // Skills Content (user-scoped)
+  listSkillContent: () =>
+    http.get<SkillContent[]>('/skills').then(r => r.data),
 
-  createSkillContent: (projectId: string, payload: CreateSkillPayload) =>
-    http.post<SkillContent>(`/projects/${projectId}/skills`, payload).then(r => r.data),
+  createSkillContent: (payload: CreateSkillPayload) =>
+    http.post<SkillContent>('/skills', payload).then(r => r.data),
 
-  updateSkillContent: (projectId: string, skillId: string, payload: UpdateSkillPayload) =>
-    http.put<SkillContent>(`/projects/${projectId}/skills/${skillId}`, payload).then(r => r.data),
+  updateSkillContent: (skillId: string, payload: UpdateSkillPayload) =>
+    http.put<SkillContent>(`/skills/${skillId}`, payload).then(r => r.data),
 
-  deleteSkillContent: (projectId: string, skillId: string) =>
-    http.delete(`/projects/${projectId}/skills/${skillId}`).then(r => r.data),
+  deleteSkillContent: (skillId: string) =>
+    http.delete(`/skills/${skillId}`).then(r => r.data),
 
   // Tasks
   getTaskSources: () =>

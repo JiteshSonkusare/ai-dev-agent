@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -5,112 +7,122 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.encryption import encrypt, decrypt
-from app.api.deps import get_current_user, require_project_role
-from app.models.models import Connection, User
+from app.models.models import User, Connection
+from app.api.deps import get_current_user
 
 router = APIRouter()
 
 
-class CreateConnectionRequest(BaseModel):
-    type: str  # atlassian | azure_devops | github | azure_devops_boards | claude_api
-    auth_type: str  # pat | oauth | api_key
-    credentials: str  # raw secret — will be encrypted
+class CreateConnectionPayload(BaseModel):
+    type: str
+    auth_type: str
+    credentials: str
     base_url: str = ""
-    project_name: str = ""
     extra_config: dict = {}
     label: str = ""
 
 
-@router.post("/projects/{project_id}/connections")
+class ConnectionInfo(BaseModel):
+    id: str
+    type: str
+    auth_type: str
+    base_url: str
+    extra_config: dict
+    status: str
+    label: str
+
+
+@router.post("/connections", response_model=ConnectionInfo)
 async def create_connection(
-    project_id: str,
-    req: CreateConnectionRequest,
+    payload: CreateConnectionPayload,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await require_project_role(db, project_id, user.id, ["admin", "architect"])
-
     conn = Connection(
-        project_id=project_id,
-        type=req.type,
-        auth_type=req.auth_type,
-        credentials_encrypted=encrypt(req.credentials),
-        base_url=req.base_url,
-        project_name=req.project_name,
-        extra_config=req.extra_config,
-        label=req.label or f"{req.type} connection",
-        status="connected",
+        user_id=user.id,
+        type=payload.type,
+        auth_type=payload.auth_type,
+        credentials_encrypted=encrypt(payload.credentials),
+        base_url=payload.base_url,
+        extra_config=payload.extra_config,
+        label=payload.label or payload.type,
     )
     db.add(conn)
     await db.commit()
-    return {"id": conn.id, "type": conn.type, "label": conn.label, "status": conn.status}
+    await db.refresh(conn)
+    return ConnectionInfo(
+        id=conn.id, type=conn.type, auth_type=conn.auth_type,
+        base_url=conn.base_url, extra_config=conn.extra_config or {},
+        status=conn.status, label=conn.label,
+    )
 
 
-@router.get("/projects/{project_id}/connections")
+@router.get("/connections", response_model=List[ConnectionInfo])
 async def list_connections(
-    project_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await require_project_role(db, project_id, user.id, ["admin", "architect", "developer", "viewer"])
-
-    result = await db.execute(select(Connection).where(Connection.project_id == project_id))
-    conns = result.scalars().all()
+    result = await db.execute(
+        select(Connection).where(Connection.user_id == user.id)
+    )
     return [
-        {"id": c.id, "type": c.type, "auth_type": c.auth_type, "base_url": c.base_url, "label": c.label, "status": c.status}
-        for c in conns
+        ConnectionInfo(
+            id=c.id, type=c.type, auth_type=c.auth_type,
+            base_url=c.base_url, extra_config=c.extra_config or {},
+            status=c.status, label=c.label,
+        )
+        for c in result.scalars().all()
     ]
 
 
-@router.delete("/projects/{project_id}/connections/{conn_id}")
+@router.delete("/connections/{conn_id}")
 async def delete_connection(
-    project_id: str,
     conn_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await require_project_role(db, project_id, user.id, ["admin", "architect"])
-
     conn = await db.get(Connection, conn_id)
-    if not conn or conn.project_id != project_id:
+    if not conn or conn.user_id != user.id:
         raise HTTPException(404, "Connection not found")
-
     await db.delete(conn)
     await db.commit()
-    return {"status": "deleted"}
+    return {"status": "ok"}
 
 
-@router.get("/projects/{project_id}/connections/{conn_id}/test")
+@router.get("/connections/{conn_id}/test")
 async def test_connection(
-    project_id: str,
     conn_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    await require_project_role(db, project_id, user.id, ["admin", "architect"])
-
     conn = await db.get(Connection, conn_id)
-    if not conn or conn.project_id != project_id:
+    if not conn or conn.user_id != user.id:
         raise HTTPException(404, "Connection not found")
 
-    credentials = decrypt(conn.credentials_encrypted)
+    creds = decrypt(conn.credentials_encrypted)
+    status = "connected"
+    detail = ""
 
-    # Test based on type
     try:
-        if conn.type == "atlassian":
-            from app.services.jira import JiraService
-            svc = JiraService(base_url=conn.base_url, email=conn.extra_config.get("email", ""), api_token=credentials)
-            await svc.get_issue("TEST-1")  # will 404 but proves auth works
-        elif conn.type == "claude_api":
-            from app.services.claude import ClaudeService
-            svc = ClaudeService(api_key=credentials, model=conn.extra_config.get("model", "claude-sonnet-4-6"))
-            await svc.generate(system="test", prompt="Say hello", max_tokens=10)
-        # Add more types as needed
-        conn.status = "connected"
+        if conn.type == "claude_api":
+            import anthropic
+            client = anthropic.AsyncAnthropic(api_key=creds)
+            await client.messages.create(
+                model="claude-haiku-4-5-20251001", max_tokens=10,
+                messages=[{"role": "user", "content": "hi"}],
+            )
+        elif conn.type == "github":
+            import httpx
+            async with httpx.AsyncClient() as http:
+                resp = await http.get("https://api.github.com/user",
+                                      headers={"Authorization": f"token {creds}"})
+                if resp.status_code != 200:
+                    status = "error"
+                    detail = f"HTTP {resp.status_code}"
     except Exception as e:
-        conn.status = "error"
-        await db.commit()
-        return {"status": "error", "detail": str(e)}
+        status = "error"
+        detail = str(e)[:200]
 
+    conn.status = status
     await db.commit()
-    return {"status": "connected"}
+    return {"status": status, "detail": detail}

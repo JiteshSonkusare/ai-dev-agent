@@ -14,15 +14,12 @@ router = APIRouter()
 VALID_SKILL_TYPES = ("develop", "review", "plan")
 
 
-# ── Schemas ──────────────────────────────────────────────────────────────────
-
-
 class CreateSkillRequest(BaseModel):
     name: str
     skill_type: str
     content: str
     description: str = ""
-    repository: Optional[str] = None  # None = default/fallback skill
+    repository: Optional[str] = None
 
     @field_validator("skill_type")
     @classmethod
@@ -40,13 +37,6 @@ class UpdateSkillRequest(BaseModel):
     repository: Optional[str] = None
     is_active: Optional[bool] = None
 
-    @field_validator("skill_type")
-    @classmethod
-    def validate_skill_type(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in VALID_SKILL_TYPES:
-            raise ValueError(f"skill_type must be one of: {', '.join(VALID_SKILL_TYPES)}")
-        return v
-
 
 class SkillResponse(BaseModel):
     id: str
@@ -60,51 +50,34 @@ class SkillResponse(BaseModel):
     updated_at: str
 
 
-def _skill_to_response(skill: Skill) -> SkillResponse:
+def _to_response(s: Skill) -> SkillResponse:
     return SkillResponse(
-        id=skill.id,
-        name=skill.name,
-        skill_type=skill.skill_type,
-        content=skill.content,
-        description=skill.description,
-        repository=skill.repository,
-        is_active=skill.is_active,
-        created_at=skill.created_at.isoformat(),
-        updated_at=skill.updated_at.isoformat(),
+        id=s.id, name=s.name, skill_type=s.skill_type, content=s.content,
+        description=s.description, repository=s.repository, is_active=s.is_active,
+        created_at=s.created_at.isoformat(), updated_at=s.updated_at.isoformat(),
     )
 
 
-# ── Endpoints ────────────────────────────────────────────────────────────────
-
-
-@router.get("/projects/{project_id}/skills", response_model=List[SkillResponse])
+@router.get("/skills", response_model=List[SkillResponse])
 async def list_skills(
-    project_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Skill)
-        .where(Skill.project_id == project_id)
-        .order_by(Skill.skill_type, Skill.repository)
+        select(Skill).where(Skill.user_id == user.id).order_by(Skill.skill_type, Skill.repository)
     )
-    skills = result.scalars().all()
-    return [_skill_to_response(s) for s in skills]
+    return [_to_response(s) for s in result.scalars().all()]
 
 
-@router.post("/projects/{project_id}/skills", response_model=SkillResponse)
+@router.post("/skills", response_model=SkillResponse)
 async def create_skill(
-    project_id: str,
     req: CreateSkillRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Check for duplicate: same type + same repo (or both default) in this project
     repo_val = req.repository.strip() if req.repository else None
     query = select(Skill).where(
-        Skill.project_id == project_id,
-        Skill.skill_type == req.skill_type,
-        Skill.is_active == True,
+        Skill.user_id == user.id, Skill.skill_type == req.skill_type, Skill.is_active == True,
     )
     if repo_val:
         query = query.where(Skill.repository == repo_val)
@@ -114,67 +87,53 @@ async def create_skill(
     existing = await db.execute(query)
     if existing.scalar_one_or_none():
         scope = f"repository '{repo_val}'" if repo_val else "default (all repos)"
-        raise HTTPException(400, f"An active {req.skill_type} skill already exists for {scope}. Edit or delete it first.")
+        raise HTTPException(400, f"An active {req.skill_type} skill already exists for {scope}.")
 
     skill = Skill(
-        project_id=project_id,
-        name=req.name,
-        skill_type=req.skill_type,
-        content=req.content,
-        description=req.description,
-        repository=repo_val,
-        created_by=user.id,
+        user_id=user.id, name=req.name, skill_type=req.skill_type,
+        content=req.content, description=req.description, repository=repo_val,
     )
     db.add(skill)
     await db.commit()
     await db.refresh(skill)
-    return _skill_to_response(skill)
+    return _to_response(skill)
 
 
-@router.put("/projects/{project_id}/skills/{skill_id}", response_model=SkillResponse)
+@router.put("/skills/{skill_id}", response_model=SkillResponse)
 async def update_skill(
-    project_id: str,
     skill_id: str,
     req: UpdateSkillRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     skill = await db.get(Skill, skill_id)
-    if not skill or skill.project_id != project_id:
+    if not skill or skill.user_id != user.id:
         raise HTTPException(404, "Skill not found")
 
-    if req.name is not None:
-        skill.name = req.name
-    if req.skill_type is not None:
-        skill.skill_type = req.skill_type
-    if req.content is not None:
-        skill.content = req.content
-    if req.description is not None:
-        skill.description = req.description
-    if req.repository is not None:
-        skill.repository = req.repository.strip() if req.repository else None
-    if req.is_active is not None:
-        skill.is_active = req.is_active
+    if req.name is not None: skill.name = req.name
+    if req.skill_type is not None: skill.skill_type = req.skill_type
+    if req.content is not None: skill.content = req.content
+    if req.description is not None: skill.description = req.description
+    if req.repository is not None: skill.repository = req.repository.strip() if req.repository else None
+    if req.is_active is not None: skill.is_active = req.is_active
 
     from datetime import datetime, timezone
     skill.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(skill)
-    return _skill_to_response(skill)
+    return _to_response(skill)
 
 
-@router.delete("/projects/{project_id}/skills/{skill_id}")
+@router.delete("/skills/{skill_id}")
 async def delete_skill(
-    project_id: str,
     skill_id: str,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     skill = await db.get(Skill, skill_id)
-    if not skill or skill.project_id != project_id:
+    if not skill or skill.user_id != user.id:
         raise HTTPException(404, "Skill not found")
-
     await db.delete(skill)
     await db.commit()
     return {"status": "ok"}

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.encryption import decrypt
-from app.models.models import User, Task, Run, RunStep, Gate, Connection, ProjectMember
+from app.models.models import User, Task, Run, RunStep, Gate, Connection
 from app.api.deps import get_current_user
 
 router = APIRouter()
@@ -59,16 +59,9 @@ class TaskResponse(BaseModel):
 
 async def _get_github_connection(db: AsyncSession, user_id: str) -> tuple:
     """Get the user's GitHub PAT and owner. Raises clear errors if not configured."""
-    pm = await db.execute(
-        select(ProjectMember.project_id).where(ProjectMember.user_id == user_id).limit(1)
-    )
-    project_id = pm.scalar_one_or_none()
-    if not project_id:
-        raise HTTPException(400, "No project found. Please register again.")
-
     result = await db.execute(
         select(Connection).where(
-            Connection.project_id == project_id,
+            Connection.user_id == user_id,
             Connection.type == "github",
         ).limit(1)
     )
@@ -81,7 +74,7 @@ async def _get_github_connection(db: AsyncSession, user_id: str) -> tuple:
 
     token = decrypt(conn.credentials_encrypted)
     owner = (conn.extra_config or {}).get("owner", "")
-    return token, owner, project_id
+    return token, owner
 
 
 def _extract_priority(labels: list) -> Optional[str]:
@@ -249,7 +242,7 @@ async def get_task_sources(
     db: AsyncSession = Depends(get_db),
 ):
     """Fetch repos and projects from GitHub for the source dropdown."""
-    token, owner, _ = await _get_github_connection(db, user.id)
+    token, owner = await _get_github_connection(db, user.id)
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
 
     async with httpx.AsyncClient() as client:
@@ -290,7 +283,7 @@ async def pull_tasks(
     db: AsyncSession = Depends(get_db),
 ):
     """Pull backlog issues from GitHub and store as tasks."""
-    token, owner, project_id = await _get_github_connection(db, user.id)
+    token, owner = await _get_github_connection(db, user.id)
     username = user.github_username or ""
     if not username:
         raise HTTPException(400, "Set your GitHub username in Settings → Profile first.")
@@ -364,7 +357,6 @@ async def pull_tasks(
         else:
             task = Task(
                 user_id=user.id,
-                project_id=project_id,
                 github_issue_number=issue["number"],
                 github_url=issue.get("html_url", issue.get("url", "")),
                 title=issue.get("title", ""),
@@ -440,14 +432,7 @@ async def start_task(
         raise HTTPException(400, f"Task is already '{task.status}'. Only 'open' tasks can be started.")
 
     # Verify connections exist
-    pm = await db.execute(
-        select(ProjectMember.project_id).where(ProjectMember.user_id == user.id).limit(1)
-    )
-    project_id = pm.scalar_one_or_none()
-    if not project_id:
-        raise HTTPException(400, "No project found.")
-
-    conns = await db.execute(select(Connection).where(Connection.project_id == project_id))
+    conns = await db.execute(select(Connection).where(Connection.user_id == user.id))
     connections = conns.scalars().all()
     has_github = any(c.type == "github" for c in connections)
     has_claude = any(c.type == "claude_api" for c in connections)
@@ -460,10 +445,8 @@ async def start_task(
 
     # Create the run record
     run = Run(
-        project_id=project_id,
+        user_id=user.id,
         task_id=task_id,
-        triggered_by=user.id,
-        epic_key=f"#{task.github_issue_number}",
         status="running",
         model="claude-sonnet-4-6",
     )
