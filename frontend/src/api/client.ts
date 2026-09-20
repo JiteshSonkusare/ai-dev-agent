@@ -376,8 +376,8 @@ export const api = {
   login: (email: string, password: string) =>
     http.post<AuthResponse>('/auth/login', { email, password }).then(r => r.data),
 
-  register: (email: string, password: string, name: string) =>
-    http.post<AuthResponse>('/auth/register', { email, password, name }).then(r => r.data),
+  register: (email: string, password: string, name: string, org_name: string) =>
+    http.post<AuthResponse>('/auth/register', { email, password, name, org_name }).then(r => r.data),
 
   // User profile
   getMe: () =>

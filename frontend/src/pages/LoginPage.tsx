@@ -1,126 +1,64 @@
 import { useState } from 'react'
 import { Zap, ArrowRight, CheckCircle, Users, AlertCircle, Sparkles, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { api } from '../api/client'
 import { Button, Input, Label } from '../components/ui'
 
-// ── Onboarding (Register + Create Org → auto-creates default project) ────────
-
-type OnboardStep = 'register' | 'create_org' | 'done'
+// ── Onboarding (Register + Create Org in one step) ─────────────────────────
 
 function OnboardingPanel({ onBack }: { onBack: () => void }) {
   const { register } = useAuth()
-  const [step, setStep] = useState<OnboardStep>('register')
 
   const [regName, setRegName] = useState('')
   const [regEmail, setRegEmail] = useState('')
   const [regPassword, setRegPassword] = useState('')
+  const [orgName, setOrgName] = useState('')
   const [regError, setRegError] = useState('')
   const [registering, setRegistering] = useState(false)
-
-  const [orgName, setOrgName] = useState('')
-  const [orgSlug, setOrgSlug] = useState('')
-  const [orgError, setOrgError] = useState('')
-  const [creatingOrg, setCreatingOrg] = useState(false)
-
-  function handleOrgNameChange(name: string) {
-    setOrgName(name)
-    setOrgSlug(name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))
-  }
+  const [done, setDone] = useState(false)
 
   async function handleRegister() {
-    if (!regName.trim() || !regEmail.trim() || !regPassword.trim()) {
+    if (!regName.trim() || !regEmail.trim() || !regPassword.trim() || !orgName.trim()) {
       setRegError('All fields are required'); return
     }
+    if (regPassword.length < 6) { setRegError('Password must be at least 6 characters'); return }
     setRegistering(true); setRegError('')
     try {
-      await register(regEmail.trim(), regPassword, regName.trim())
-      setStep('create_org')
+      await register(regEmail.trim(), regPassword, regName.trim(), orgName.trim())
+      setDone(true)
     } catch (e: any) {
       setRegError(e.response?.data?.detail || 'Registration failed')
     } finally { setRegistering(false) }
   }
 
-  async function handleCreateOrg() {
-    if (!orgName.trim()) { setOrgError('Organization name is required'); return }
-    setCreatingOrg(true); setOrgError('')
-    try {
-      const org = await api.createOrg(orgName.trim(), orgSlug.trim())
-      // Store org + default project
-      localStorage.setItem('cc_org_id', org.id)
-      if (org.default_project_id) {
-        localStorage.setItem('cc_project_id', org.default_project_id)
-      }
-      setStep('done')
-    } catch (e: any) {
-      setOrgError(e.response?.data?.detail || 'Failed to create organization')
-    } finally { setCreatingOrg(false) }
-  }
-
   return (
     <div className="flex flex-col justify-center h-full px-10 max-w-md mx-auto w-full">
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mb-6 transition-colors"
-      >
+      <button onClick={onBack}
+        className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mb-6 transition-colors">
         <ArrowLeft size={14} /> Back to Sign In
       </button>
 
-      {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-[#DA7756]/15 border border-[#DA7756]/30 flex items-center justify-center">
           <Sparkles size={20} className="text-[#DA7756]" />
         </div>
         <div>
           <p className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight">Get Started</p>
-          <p className="text-xs text-slate-400">Create your workspace</p>
+          <p className="text-xs text-slate-400">Create your organization and admin account</p>
         </div>
       </div>
 
-      {/* Step indicator */}
-      {step !== 'done' && (
-        <div className="flex items-center gap-3 mb-6">
-          <StepDot active={step === 'register'} done={step === 'create_org'} label="1. Account" />
-          <div className={`flex-1 h-px ${step === 'create_org' ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700'}`} />
-          <StepDot active={step === 'create_org'} done={false} label="2. Organization" />
-        </div>
-      )}
-
-      {/* Register */}
-      {step === 'register' && (
+      {!done ? (
         <div className="space-y-4">
-          <div><Label>Full Name</Label><Input value={regName} onChange={setRegName} placeholder="Jane Smith" /></div>
-          <div><Label>Email</Label><Input value={regEmail} onChange={setRegEmail} placeholder="jane@company.com" onKeyDown={e => e.key === 'Enter' && handleRegister()} /></div>
-          <div><Label>Password</Label><Input value={regPassword} onChange={setRegPassword} placeholder="Min 6 characters" onKeyDown={e => e.key === 'Enter' && handleRegister()} /></div>
+          <div><Label>Organization Name</Label><Input value={orgName} onChange={setOrgName} placeholder="Acme Corp" /></div>
+          <div><Label>Your Name</Label><Input value={regName} onChange={setRegName} placeholder="Jitesh Sonkusare" /></div>
+          <div><Label>Email</Label><Input value={regEmail} onChange={setRegEmail} placeholder="jitesh@company.com" type="email" /></div>
+          <div><Label>Password</Label><Input value={regPassword} onChange={setRegPassword} type="password" placeholder="Min 6 characters" onKeyDown={e => e.key === 'Enter' && handleRegister()} /></div>
           {regError && <ErrorMsg msg={regError} />}
           <Button onClick={handleRegister} disabled={registering} className="w-full justify-center">
-            {registering ? 'Creating...' : <>Create Account <ArrowRight size={14} /></>}
+            {registering ? 'Creating...' : <>Create Organization <ArrowRight size={14} /></>}
           </Button>
         </div>
-      )}
-
-      {/* Create Org */}
-      {step === 'create_org' && (
-        <div className="space-y-4">
-          <p className="text-sm text-slate-500">
-            Create your organization. A default project will be set up automatically.
-          </p>
-          <div><Label>Organization Name</Label><Input value={orgName} onChange={handleOrgNameChange} placeholder="Acme Corp" onKeyDown={e => e.key === 'Enter' && handleCreateOrg()} /></div>
-          <div>
-            <Label>Slug</Label>
-            <Input value={orgSlug} onChange={setOrgSlug} placeholder="acme-corp" />
-            <p className="text-xs text-slate-400 mt-1">URL-friendly identifier (auto-generated)</p>
-          </div>
-          {orgError && <ErrorMsg msg={orgError} />}
-          <Button onClick={handleCreateOrg} disabled={creatingOrg} className="w-full justify-center">
-            {creatingOrg ? 'Creating...' : <>Create & Continue <ArrowRight size={14} /></>}
-          </Button>
-        </div>
-      )}
-
-      {/* Done */}
-      {step === 'done' && (
+      ) : (
         <div className="text-center space-y-5">
           <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center mx-auto">
             <CheckCircle size={32} className="text-emerald-500" />
@@ -128,7 +66,7 @@ function OnboardingPanel({ onBack }: { onBack: () => void }) {
           <div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">You're all set!</h3>
             <p className="text-sm text-slate-500 mt-2 max-w-xs mx-auto">
-              Your organization and default project are ready. Next, go to <strong>Settings</strong> to add connections and team members.
+              Your organization <strong>{orgName}</strong> is ready. Go to <strong>Settings</strong> to add GitHub and Claude connections.
             </p>
           </div>
           <Button onClick={() => window.location.reload()} className="w-full justify-center">
@@ -165,7 +103,7 @@ function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
           <Zap size={20} className="text-[#DA7756]" />
         </div>
         <div>
-          <p className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight">CC Automation</p>
+          <p className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-tight">AI DevAgent</p>
           <p className="text-xs text-slate-400">Agentic AI Development Platform</p>
         </div>
       </div>
@@ -197,20 +135,6 @@ function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
 }
 
 // ── Shared components ────────────────────────────────────────────────────────
-
-function StepDot({ active, done, label }: { active: boolean; done: boolean; label: string }) {
-  return (
-    <span className={`text-[12px] font-semibold px-2.5 py-1 rounded-full transition-all ${
-      done
-        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25'
-        : active
-        ? 'bg-[#DA7756]/10 text-[#DA7756] border border-[#DA7756]/25'
-        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
-    }`}>
-      {done ? <><CheckCircle size={10} className="inline mr-1" />{label}</> : label}
-    </span>
-  )
-}
 
 function ErrorMsg({ msg }: { msg: string }) {
   return (
