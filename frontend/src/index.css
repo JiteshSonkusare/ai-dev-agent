@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Theme tokens ─────────────────────────────────── */
+:root {
+  --bg-base:    #F2F0EB;          /* warm cream — Claude light bg */
+  --bg-surface: #FAF9F6;          /* near-white warm sidebar */
+  --bg-card:    #FFFFFF;
+  --bg-code:    #EAE8E2;          /* warm code block */
+  --bg-input:   #F5F3EE;          /* warm tinted input */
+  --accent:     #DA7756;          /* Claude brand coral-terracotta */
+  --accent-h:   #E0836A;          /* hover — slightly lighter */
+  --accent-a:   #C86A48;          /* active — slightly darker */
+}
+.dark {
+  --bg-base:    #1A1915;          /* warm near-black — Claude dark bg */
+  --bg-surface: #211F1A;          /* warm dark sidebar */
+  --bg-card:    #2A2720;          /* warm dark card */
+  --bg-code:    #1A1915;
+  --bg-input:   rgba(50, 47, 38, 0.8);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  background: var(--bg-base);
+  color: #1C1917;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.2s, color 0.2s;
+}
+.dark body { color: #E8E2D9; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #A8A29E; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb { background: #44403C; }
+::-webkit-scrollbar-thumb:hover { background: #78716C; }
+
+/* ── Custom animations ───────────────────────────────── */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+  background-size: 200% 100%;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slide-in-right 0.2s ease-out;
+}
+
+/* Date input styling */
+.date-input::-webkit-calendar-picker-indicator {
+  opacity: 0.4;
+  cursor: pointer;
+  filter: var(--date-icon-filter, none);
+}
+.date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.7;
+}
+.dark .date-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.4;
+}
+.dark .date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.7;
+}
+.date-input::-webkit-datetime-edit {
+  font-size: 12px;
+}
+.date-input::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}

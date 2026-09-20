@@ -1,0 +1,166 @@
+name: Deploy AI DevAgent
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  APP_PATH: C:\aidevagent
+
+jobs:
+  deploy:
+    name: Deploy to VM
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Deploy Backend
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Continue"
+
+          # Copy backend
+          if (-not (Test-Path "${{ env.APP_PATH }}\backend")) {
+            New-Item -ItemType Directory -Path "${{ env.APP_PATH }}\backend" -Force | Out-Null
+          }
+          Copy-Item -Path "backend\*" -Destination "${{ env.APP_PATH }}\backend" -Recurse -Force
+          Write-Output "Backend files copied"
+
+          # Install dependencies
+          Set-Location "${{ env.APP_PATH }}\backend"
+          python -m pip install -r requirements.txt --quiet 2>&1
+          Write-Output "Backend dependencies installed"
+
+          # Create .env if not exists
+          if (-not (Test-Path ".env")) {
+            @"
+          DATABASE_URL=mssql+aioodbc://sqladmin:AiDevAgent%402026!@aidevagent-sql.database.windows.net/aidevagent_db?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=no
+          ENCRYPTION_KEY=
+          SESSION_EXPIRE_HOURS=24
+          WORKSPACE_BASE_PATH=C:\agent-workspace
+          "@ | Set-Content ".env"
+            Write-Output "Created .env"
+          }
+
+          # Ensure logs directory
+          New-Item -ItemType Directory -Path "${{ env.APP_PATH }}\logs" -Force | Out-Null
+
+          # Install or restart FastAPI service
+          $svc = nssm status AIDevAgentAPI 2>&1
+          if ($svc -match "SERVICE_RUNNING") {
+            nssm restart AIDevAgentAPI
+            Write-Output "Backend service restarted"
+          } elseif ($svc -match "SERVICE_STOPPED") {
+            nssm start AIDevAgentAPI
+            Write-Output "Backend service started"
+          } else {
+            nssm install AIDevAgentAPI python "-m" "uvicorn" "main:app" "--host" "0.0.0.0" "--port" "8000"
+            nssm set AIDevAgentAPI AppDirectory "${{ env.APP_PATH }}\backend"
+            nssm set AIDevAgentAPI AppStdout "${{ env.APP_PATH }}\logs\backend-stdout.log"
+            nssm set AIDevAgentAPI AppStderr "${{ env.APP_PATH }}\logs\backend-stderr.log"
+            nssm set AIDevAgentAPI AppRotateFiles 1
+            nssm set AIDevAgentAPI AppRotateBytes 10485760
+            nssm start AIDevAgentAPI
+            Write-Output "Backend service installed and started"
+          }
+
+      - name: Deploy Frontend
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Continue"
+
+          # Build frontend
+          Set-Location "frontend"
+          npm install --silent 2>&1
+          npm run build 2>&1
+          Write-Output "Frontend built"
+
+          # Deploy to IIS
+          $IIS_PATH = "C:\inetpub\wwwroot\aidevagent"
+          if (-not (Test-Path $IIS_PATH)) {
+            New-Item -ItemType Directory -Path $IIS_PATH -Force | Out-Null
+          }
+          Copy-Item -Path "dist\*" -Destination $IIS_PATH -Recurse -Force
+          Write-Output "Frontend deployed to IIS"
+
+          # web.config for SPA routing + API proxy
+          $webConfig = @"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <configuration>
+            <system.webServer>
+              <rewrite>
+                <rules>
+                  <rule name="API Proxy" stopProcessing="true">
+                    <match url="^api/(.*)" />
+                    <action type="Rewrite" url="http://localhost:8000/api/{R:1}" />
+                  </rule>
+                  <rule name="SPA Fallback" stopProcessing="true">
+                    <match url=".*" />
+                    <conditions>
+                      <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+                      <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+                    </conditions>
+                    <action type="Rewrite" url="/index.html" />
+                  </rule>
+                </rules>
+              </rewrite>
+            </system.webServer>
+          </configuration>
+          "@
+          Set-Content -Path "$IIS_PATH\web.config" -Value $webConfig
+          Write-Output "web.config created"
+
+      - name: Setup IIS Site
+        shell: powershell
+        run: |
+          Import-Module WebAdministration -ErrorAction SilentlyContinue
+          $siteName = "AIDevAgent"
+          $iisPath = "C:\inetpub\wwwroot\aidevagent"
+
+          if (-not (Get-Website -Name $siteName -ErrorAction SilentlyContinue)) {
+            # Stop Default Web Site to free port 80
+            Stop-Website -Name "Default Web Site" -ErrorAction SilentlyContinue
+            New-Website -Name $siteName -Port 80 -PhysicalPath $iisPath -Force
+            Write-Output "IIS site '$siteName' created on port 80"
+          } else {
+            Write-Output "IIS site '$siteName' already exists"
+          }
+
+          # Install URL Rewrite + ARR if not present
+          $urlRewrite = Get-WebGlobalModule -Name "RewriteModule" -ErrorAction SilentlyContinue
+          if (-not $urlRewrite) {
+            Write-Output "NOTE: Install URL Rewrite module manually from https://www.iis.net/downloads/microsoft/url-rewrite"
+          }
+
+          iisreset /restart 2>&1
+          Write-Output "IIS restarted"
+
+      - name: Create Agent Workspace
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path "C:\agent-workspace" -Force | Out-Null
+          Write-Output "Agent workspace directory created"
+
+      - name: Verify Deployment
+        shell: powershell
+        run: |
+          Start-Sleep -Seconds 5
+
+          # Check backend
+          try {
+            $health = Invoke-RestMethod -Uri "http://localhost:8000/health" -TimeoutSec 10
+            Write-Output "✅ Backend: OK (v$($health.version))"
+          } catch {
+            Write-Output "❌ Backend: $($_.Exception.Message)"
+          }
+
+          # Check frontend
+          try {
+            $web = Invoke-WebRequest -Uri "http://localhost" -UseBasicParsing -TimeoutSec 10
+            Write-Output "✅ Frontend: OK (status $($web.StatusCode))"
+          } catch {
+            Write-Output "❌ Frontend: $($_.Exception.Message)"
+          }
