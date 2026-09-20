@@ -75,6 +75,13 @@ class UserListResponse(BaseModel):
 # ── Auth endpoints ───────────────────────────────────────────────────────────
 
 
+@router.get("/can-register")
+async def can_register(db: AsyncSession = Depends(get_db)):
+    """Check if first-user registration is available."""
+    count = await db.execute(select(func.count()).select_from(User))
+    return {"can_register": count.scalar() == 0}
+
+
 @router.post("/register", response_model=AuthResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """First user registration — creates org and becomes admin. Disabled after first user."""

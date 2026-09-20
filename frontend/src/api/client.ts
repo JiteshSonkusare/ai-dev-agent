@@ -373,6 +373,9 @@ export interface DashboardStats {
 
 export const api = {
   // Auth
+  canRegister: () =>
+    http.get<{ can_register: boolean }>('/auth/can-register').then(r => r.data),
+
   login: (email: string, password: string) =>
     http.post<AuthResponse>('/auth/login', { email, password }).then(r => r.data),
 
