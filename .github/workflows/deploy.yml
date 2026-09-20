@@ -70,10 +70,11 @@ jobs:
       - name: Deploy Frontend
         shell: powershell
         run: |
-          $ErrorActionPreference = "Continue"
+          $ErrorActionPreference = "Stop"
+          $WORKSPACE = $env:GITHUB_WORKSPACE
 
           # Build frontend
-          Set-Location "frontend"
+          Set-Location "$WORKSPACE\frontend"
           npm install --silent 2>&1
           npm run build 2>&1
           Write-Output "Frontend built"
@@ -83,7 +84,7 @@ jobs:
           if (-not (Test-Path $IIS_PATH)) {
             New-Item -ItemType Directory -Path $IIS_PATH -Force | Out-Null
           }
-          Copy-Item -Path "dist\*" -Destination $IIS_PATH -Recurse -Force
+          Copy-Item -Path "$WORKSPACE\frontend\dist\*" -Destination $IIS_PATH -Recurse -Force
           Write-Output "Frontend deployed to IIS"
 
           # web.config for SPA routing + API proxy

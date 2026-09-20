@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   ListTodo, RefreshCw, ExternalLink, Clock, FolderCode, Play,
   CheckCircle2, XCircle, AlertTriangle, Pause, ChevronLeft, ChevronRight,
-  Search, X, Tag, GitBranch, Loader2,
+  Search, X, Tag, Loader2,
 } from 'lucide-react'
 import { api } from '../api/client'
 import type { TaskItem } from '../api/client'

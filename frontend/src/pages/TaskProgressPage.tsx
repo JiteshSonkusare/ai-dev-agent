@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, CheckCircle2, XCircle, Loader2, Clock, GitBranch,
+  ArrowLeft, CheckCircle2, XCircle, Loader2, GitBranch,
   Terminal, Brain, Shield, GitPullRequest, Rocket, ExternalLink,
   AlertTriangle, ChevronDown,
 } from 'lucide-react'
