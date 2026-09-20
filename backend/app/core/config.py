@@ -1,8 +1,19 @@
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _get_env_file() -> str:
+    """Load .env.development or .env.production based on ENV variable."""
+    env = os.getenv("ENV", "development")
+    env_file = f".env.{env}"
+    if os.path.exists(env_file):
+        return env_file
+    # Fallback to .env.development
+    return ".env.development"
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_get_env_file(), env_file_encoding="utf-8", extra="ignore")
 
     env: str = "development"
     app_base_url: str = "http://localhost:8000"
@@ -10,9 +21,8 @@ class Settings(BaseSettings):
     # API security
     api_key: str = ""
 
-    # Database — SQLite for local dev, MS SQL for production
-    # MS SQL: mssql+aioodbc://sa:Pass@localhost\\SQLEXPRESS/devagent_db?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
-    database_url: str = "sqlite+aiosqlite:///./cc_automation.db"
+    # Database — Azure SQL (MS SQL)
+    database_url: str = "mssql+aioodbc://sqladmin:AiDevAgent%402026!@aidevagent-sql.database.windows.net/aidevagent_db?driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=no"
 
     # Encryption key for credentials (Fernet)
     encryption_key: str = ""
@@ -21,7 +31,7 @@ class Settings(BaseSettings):
     session_secret: str = "change-me-in-production"
     session_expire_hours: int = 24
 
-    # Agent workspace — where repos are cloned for task execution
+    # Agent workspace
     workspace_base_path: str = "/tmp/agent-workspace"
 
     # Azure AD (optional SSO)

@@ -5,10 +5,16 @@ __pycache__/
 dist/
 build/
 *.egg
-.env
 *.db
+*.db-shm
+*.db-wal
 venv/
 .venv/
+
+# Env files (secrets)
+backend/.env
+backend/.env.development
+backend/.env.production
 
 # Node
 node_modules/
