@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Zap, ArrowRight, CheckCircle, Users, AlertCircle, Sparkles, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { api } from '../api/client'
 import { Button, Input, Label } from '../components/ui'
 
 // ── Onboarding (Register + Create Org in one step) ─────────────────────────
@@ -87,11 +86,6 @@ function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [canRegister, setCanRegister] = useState(false)
-
-  useEffect(() => {
-    api.canRegister().then(r => setCanRegister(r.can_register)).catch(() => {})
-  }, [])
 
   async function handleLogin() {
     if (!email.trim() || !password) { setError('Email and password required'); return }
@@ -126,18 +120,16 @@ function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
         </Button>
       </div>
 
-      {/* Onboard link — only shown if no users exist yet */}
-      {canRegister && (
-        <div className="mt-10 pt-6 border-t border-slate-200 dark:border-slate-700/40 text-center">
-          <p className="text-sm text-slate-500 mb-3">First time setup?</p>
-          <button
-            onClick={onOnboard}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-[#DA7756] bg-[#DA7756]/8 hover:bg-[#DA7756]/15 border border-[#DA7756]/20 transition-all"
-          >
-            <Users size={15} /> Create Organization <ArrowRight size={14} />
-          </button>
-        </div>
-      )}
+      {/* Create Organization */}
+      <div className="mt-10 pt-6 border-t border-slate-200 dark:border-slate-700/40 text-center">
+        <p className="text-sm text-slate-500 mb-3">New to the platform?</p>
+        <button
+          onClick={onOnboard}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-[#DA7756] bg-[#DA7756]/8 hover:bg-[#DA7756]/15 border border-[#DA7756]/20 transition-all"
+        >
+          <Users size={15} /> Create Organization <ArrowRight size={14} />
+        </button>
+      </div>
     </div>
   )
 }

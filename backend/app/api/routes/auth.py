@@ -77,21 +77,13 @@ class UserListResponse(BaseModel):
 
 @router.get("/can-register")
 async def can_register(db: AsyncSession = Depends(get_db)):
-    """Check if first-user registration is available."""
-    count = await db.execute(select(func.count()).select_from(User))
-    return {"can_register": count.scalar() == 0}
+    """Registration is always available — anyone can create a new org."""
+    return {"can_register": True}
 
 
 @router.post("/register", response_model=AuthResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    """First user registration — creates org and becomes admin. Disabled after first user."""
-    # Check if any users exist
-    count = await db.execute(select(func.count()).select_from(User))
-    user_count = count.scalar()
-
-    if user_count > 0:
-        raise HTTPException(400, "Registration disabled. Ask your admin to create an account for you.")
-
+    """Create a new organization with an admin user."""
     existing = await db.execute(select(User).where(User.email == req.email))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Email already registered")
