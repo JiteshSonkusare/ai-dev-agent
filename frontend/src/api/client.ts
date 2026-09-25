@@ -2,11 +2,13 @@ import axios from 'axios'
 
 const http = axios.create({ baseURL: '/api' })
 
-// 401 interceptor — clear stale session and redirect to login
+// 401 interceptor — clear stale session and redirect to login (skip auth endpoints)
 http.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url ?? ''
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register')
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('cc_session_token')
       localStorage.removeItem('cc_user')
       window.location.href = '/'
