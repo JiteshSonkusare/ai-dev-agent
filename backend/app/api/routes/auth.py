@@ -40,6 +40,7 @@ class UserProfileResponse(BaseModel):
     email: str
     name: str
     role: str
+    org_name: Optional[str] = None
     github_username: Optional[str] = None
     github_email: Optional[str] = None
     created_at: str
@@ -139,11 +140,16 @@ async def logout(token: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserProfileResponse)
-async def get_me(user: User = Depends(get_current_user)):
+async def get_me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    # Get org name
+    org_result = await db.execute(
+        select(Org.name).join(OrgMember, OrgMember.org_id == Org.id).where(OrgMember.user_id == user.id).limit(1)
+    )
+    org_name = org_result.scalar_one_or_none()
     return UserProfileResponse(
         id=user.id, email=user.email, name=user.name, role=user.role,
-        github_username=user.github_username, github_email=user.github_email,
-        created_at=user.created_at.isoformat(),
+        org_name=org_name, github_username=user.github_username,
+        github_email=user.github_email, created_at=user.created_at.isoformat(),
     )
 
 

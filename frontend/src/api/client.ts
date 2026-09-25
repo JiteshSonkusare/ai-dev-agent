@@ -113,6 +113,7 @@ export interface UserProfile {
   email: string
   name: string
   role: string
+  org_name: string | null
   github_username: string | null
   github_email: string | null
   created_at: string

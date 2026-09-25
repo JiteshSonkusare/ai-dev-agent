@@ -6,6 +6,7 @@ interface AuthUser {
   email: string
   name: string
   role: string
+  org_name: string | null
   github_username: string | null
   github_email: string | null
 }
@@ -49,8 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await api.getMe()
         const u: AuthUser = {
           id: profile.id, email: profile.email, name: profile.name,
-          role: profile.role, github_username: profile.github_username,
-          github_email: profile.github_email,
+          role: profile.role, org_name: profile.org_name,
+          github_username: profile.github_username, github_email: profile.github_email,
         }
         setUser(u)
         localStorage.setItem(USER_KEY, JSON.stringify(u))
@@ -70,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function persist(resp: AuthResponse) {
     const u: AuthUser = {
       id: resp.user_id, email: resp.email, name: resp.name,
-      role: resp.role, github_username: null, github_email: null,
+      role: resp.role, org_name: null, github_username: null, github_email: null,
     }
     setUser(u)
     setToken(resp.token)
