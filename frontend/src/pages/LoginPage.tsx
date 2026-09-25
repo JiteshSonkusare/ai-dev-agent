@@ -82,15 +82,16 @@ function OnboardingPanel({ onBack }: { onBack: () => void }) {
 
 function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
   const { login } = useAuth()
+  const [orgName, setOrgName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleLogin() {
-    if (!email.trim() || !password) { setError('Email and password required'); return }
+    if (!orgName.trim() || !email.trim() || !password) { setError('All fields are required'); return }
     setLoading(true); setError('')
-    try { await login(email.trim(), password) }
+    try { await login(email.trim(), password, orgName.trim()) }
     catch (e: any) { setError(e.response?.data?.detail || 'Invalid credentials') }
     finally { setLoading(false) }
   }
@@ -112,8 +113,9 @@ function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
       <p className="text-sm text-slate-500 mb-8">Sign in to your account</p>
 
       <div className="space-y-4">
-        <div><Label>Email</Label><Input value={email} onChange={setEmail} placeholder="you@company.com" onKeyDown={e => e.key === 'Enter' && handleLogin()} /></div>
-        <div><Label>Password</Label><Input value={password} onChange={setPassword} placeholder="Your password" onKeyDown={e => e.key === 'Enter' && handleLogin()} /></div>
+        <div><Label>Organization</Label><Input value={orgName} onChange={setOrgName} placeholder="Your organization name" /></div>
+        <div><Label>Email</Label><Input value={email} onChange={setEmail} placeholder="you@company.com" /></div>
+        <div><Label>Password</Label><Input value={password} onChange={setPassword} type="password" placeholder="Your password" onKeyDown={e => e.key === 'Enter' && handleLogin()} /></div>
         {error && <ErrorMsg msg={error} />}
         <Button onClick={handleLogin} disabled={loading} className="w-full justify-center">
           {loading ? 'Signing in...' : 'Sign In'}

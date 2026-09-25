@@ -25,6 +25,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+    org_name: str
 
 
 class AuthResponse(BaseModel):
@@ -131,7 +132,17 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=AuthResponse)
 async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == req.email))
+    # Find org
+    org_result = await db.execute(select(Org).where(Org.name == req.org_name))
+    org = org_result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(401, "Organization not found")
+
+    # Find user in that org
+    result = await db.execute(
+        select(User).join(OrgMember, OrgMember.user_id == User.id)
+        .where(OrgMember.org_id == org.id, User.email == req.email)
+    )
     user = result.scalar_one_or_none()
     if not user or not user.password_hash or not verify_password(req.password, user.password_hash):
         raise HTTPException(401, "Invalid credentials")

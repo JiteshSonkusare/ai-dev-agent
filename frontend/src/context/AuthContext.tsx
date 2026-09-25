@@ -15,7 +15,7 @@ interface AuthContextValue {
   user: AuthUser | null
   token: string
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, orgName: string) => Promise<void>
   register: (email: string, password: string, name: string, orgName: string) => Promise<AuthResponse>
   logout: () => void
   refreshUser: () => Promise<void>
@@ -80,8 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(USER_KEY, JSON.stringify(u))
   }
 
-  async function login(email: string, password: string) {
-    const resp = await api.login(email, password)
+  async function login(email: string, password: string, orgName: string) {
+    const resp = await api.login(email, password, orgName)
     persist(resp)
   }
 
