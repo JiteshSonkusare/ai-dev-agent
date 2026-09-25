@@ -85,18 +85,35 @@ async def can_register(db: AsyncSession = Depends(get_db)):
 @router.post("/register", response_model=AuthResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """Create a new organization with an admin user."""
+    # Check org name is unique
+    org_name = req.org_name or f"{req.name}'s Organization"
+    existing_org = await db.execute(select(Org).where(Org.name == org_name))
+    if existing_org.scalar_one_or_none():
+        raise HTTPException(400, f"Organization '{org_name}' already exists")
+
+    # Check email not already used
     existing = await db.execute(select(User).where(User.email == req.email))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Email already registered")
 
-    # Create first user as admin
+    # Create admin user
     user = User(email=req.email, name=req.name, password_hash=hash_password(req.password), role="admin")
     db.add(user)
     await db.flush()
 
-    # Create org
-    org_name = req.org_name or f"{req.name}'s Organization"
-    slug = req.email.split("@")[0].lower().replace(".", "-").replace("+", "-")
+    # Create org with unique slug
+    slug = org_name.lower().replace(" ", "-").replace("'", "")
+    slug = ''.join(c for c in slug if c.isalnum() or c == '-')
+    # Ensure slug uniqueness
+    base_slug = slug
+    counter = 1
+    while True:
+        existing_slug = await db.execute(select(Org).where(Org.slug == slug))
+        if not existing_slug.scalar_one_or_none():
+            break
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+
     org = Org(name=org_name, slug=slug)
     db.add(org)
     await db.flush()
@@ -203,9 +220,21 @@ async def create_user(
     if user.role != "admin":
         raise HTTPException(403, "Only admins can create users")
 
-    existing = await db.execute(select(User).where(User.email == req.email))
+    # Get admin's org
+    org_result = await db.execute(
+        select(OrgMember.org_id).where(OrgMember.user_id == user.id).limit(1)
+    )
+    org_id = org_result.scalar_one_or_none()
+    if not org_id:
+        raise HTTPException(400, "No organization found")
+
+    # Check email uniqueness within org
+    existing = await db.execute(
+        select(User).join(OrgMember, OrgMember.user_id == User.id)
+        .where(OrgMember.org_id == org_id, User.email == req.email)
+    )
     if existing.scalar_one_or_none():
-        raise HTTPException(400, "Email already registered")
+        raise HTTPException(400, "Email already exists in this organization")
 
     if len(req.password) < 6:
         raise HTTPException(400, "Password must be at least 6 characters")
