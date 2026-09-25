@@ -81,23 +81,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(email: string, password: string) {
-    setLoading(true)
-    try {
-      persist(await api.login(email, password))
-    } finally {
-      setLoading(false)
-    }
+    const resp = await api.login(email, password)
+    persist(resp)
   }
 
   async function register(email: string, password: string, name: string, orgName: string) {
-    setLoading(true)
-    try {
-      const resp = await api.register(email, password, name, orgName)
-      persist(resp)
-      return resp
-    } finally {
-      setLoading(false)
-    }
+    const resp = await api.register(email, password, name, orgName)
+    persist(resp)
+    return resp
   }
 
   async function refreshUser() {
