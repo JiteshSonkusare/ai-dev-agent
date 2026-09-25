@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Zap, ArrowRight, CheckCircle, Users, AlertCircle, Sparkles, ArrowLeft, XCircle } from 'lucide-react'
+import { Zap, ArrowRight, CheckCircle, Users, AlertCircle, Sparkles, ArrowLeft, XCircle, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import { Button, Input, Label } from '../components/ui'
@@ -90,6 +90,7 @@ function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPw, setShowPw] = useState(false)
 
   // Debounced org validation
   useEffect(() => {
@@ -151,7 +152,15 @@ function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
           )}
         </div>
         <div><Label>Email</Label><Input value={email} onChange={setEmail} placeholder="you@company.com" /></div>
-        <div><Label>Password</Label><Input value={password} onChange={setPassword} type="password" placeholder="Your password" onKeyDown={e => e.key === 'Enter' && handleLogin()} /></div>
+        <div>
+          <Label>Password</Label>
+          <div className="relative">
+            <Input value={password} onChange={setPassword} type={showPw ? 'text' : 'password'} placeholder="Your password" onKeyDown={e => e.key === 'Enter' && handleLogin()} />
+            <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+        </div>
         {error && <ErrorMsg msg={error} />}
         <Button onClick={handleLogin} disabled={loading} className="w-full justify-center">
           {loading ? 'Signing in...' : 'Sign In'}
