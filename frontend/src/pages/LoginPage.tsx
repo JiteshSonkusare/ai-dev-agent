@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Zap, ArrowRight, CheckCircle, Users, AlertCircle, Sparkles, ArrowLeft } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Zap, ArrowRight, CheckCircle, Users, AlertCircle, Sparkles, ArrowLeft, XCircle } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { api } from '../api/client'
 import { Button, Input, Label } from '../components/ui'
 
 // ── Onboarding (Register + Create Org in one step) ─────────────────────────
@@ -83,10 +84,26 @@ function OnboardingPanel({ onBack }: { onBack: () => void }) {
 function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
   const { login } = useAuth()
   const [orgName, setOrgName] = useState('')
+  const [orgValid, setOrgValid] = useState<boolean | null>(null)
+  const [orgChecking, setOrgChecking] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Debounced org validation
+  useEffect(() => {
+    if (!orgName.trim()) { setOrgValid(null); return }
+    setOrgChecking(true)
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api.validateOrg(orgName.trim())
+        setOrgValid(result.exists)
+      } catch { setOrgValid(null) }
+      finally { setOrgChecking(false) }
+    }, 500)
+    return () => { clearTimeout(timer); setOrgChecking(false) }
+  }, [orgName])
 
   async function handleLogin() {
     if (!orgName.trim() || !email.trim() || !password) { setError('All fields are required'); return }
@@ -113,7 +130,26 @@ function LoginPanel({ onOnboard }: { onOnboard: () => void }) {
       <p className="text-sm text-slate-500 mb-8">Sign in to your account</p>
 
       <div className="space-y-4">
-        <div><Label>Organization</Label><Input value={orgName} onChange={setOrgName} placeholder="Your organization name" /></div>
+        <div>
+          <Label>Organization</Label>
+          <div className="relative">
+            <Input value={orgName} onChange={setOrgName} placeholder="Your organization name" />
+            {orgName.trim() && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                {orgChecking ? (
+                  <span className="w-4 h-4 border-2 border-slate-300 border-t-[#DA7756] rounded-full animate-spin inline-block" />
+                ) : orgValid === true ? (
+                  <CheckCircle size={16} className="text-emerald-500" />
+                ) : orgValid === false ? (
+                  <XCircle size={16} className="text-red-400" />
+                ) : null}
+              </span>
+            )}
+          </div>
+          {orgValid === false && orgName.trim() && (
+            <p className="text-[10px] text-red-400 mt-0.5">Organization not found</p>
+          )}
+        </div>
         <div><Label>Email</Label><Input value={email} onChange={setEmail} placeholder="you@company.com" /></div>
         <div><Label>Password</Label><Input value={password} onChange={setPassword} type="password" placeholder="Your password" onKeyDown={e => e.key === 'Enter' && handleLogin()} /></div>
         {error && <ErrorMsg msg={error} />}

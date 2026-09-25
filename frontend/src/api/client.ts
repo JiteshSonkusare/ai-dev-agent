@@ -379,6 +379,9 @@ export const api = {
   canRegister: () =>
     http.get<{ can_register: boolean }>('/auth/can-register').then(r => r.data),
 
+  validateOrg: (name: string) =>
+    http.get<{ exists: boolean }>(`/auth/validate-org?name=${encodeURIComponent(name)}`).then(r => r.data),
+
   login: (email: string, password: string, org_name: string) =>
     http.post<AuthResponse>('/auth/login', { email, password, org_name }).then(r => r.data),
 

@@ -83,6 +83,13 @@ async def can_register(db: AsyncSession = Depends(get_db)):
     return {"can_register": True}
 
 
+@router.get("/validate-org")
+async def validate_org(name: str, db: AsyncSession = Depends(get_db)):
+    """Check if an organization exists by name."""
+    result = await db.execute(select(Org).where(Org.name == name))
+    return {"exists": result.scalar_one_or_none() is not None}
+
+
 @router.post("/register", response_model=AuthResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """Create a new organization with an admin user."""
