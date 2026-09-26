@@ -28,6 +28,7 @@ async def run_agent_loop(
     tool_executor: ToolExecutor,
     on_progress: Callable[[str, dict], Awaitable[None]],
     max_iterations: int = 50,
+    base_url: str = "",
 ) -> dict:
     """
     Run a Claude tool_use agent loop until completion or max iterations.
@@ -45,7 +46,10 @@ async def run_agent_loop(
     Returns:
         dict with status, final_response, total_tokens_in, total_tokens_out
     """
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client_kwargs = {"api_key": api_key}
+    if base_url:
+        client_kwargs["base_url"] = base_url
+    client = anthropic.AsyncAnthropic(**client_kwargs)
     messages = [{"role": "user", "content": user_message}]
     total_in = 0
     total_out = 0

@@ -428,8 +428,8 @@ export const api = {
   createGitHubConnection: (url: string, token: string) =>
     http.post('/connections/github', { url, token }).then(r => r.data),
 
-  createClaudeConnection: (api_key: string, model: string) =>
-    http.post('/connections/claude', { api_key, model }).then(r => r.data),
+  createClaudeConnection: (api_key: string, model: string, base_url: string = '') =>
+    http.post('/connections/claude', { api_key, model, base_url }).then(r => r.data),
 
   deleteConnection: (connId: string) =>
     http.delete(`/connections/${connId}`).then(r => r.data),

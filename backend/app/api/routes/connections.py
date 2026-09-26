@@ -24,6 +24,7 @@ class GitHubConnectionRequest(BaseModel):
 class ClaudeConnectionRequest(BaseModel):
     api_key: str
     model: str = "claude-sonnet-4-6"
+    base_url: str = ""  # Corporate gateway URL, e.g. https://gateway.raicode.no
 
 
 class ConnectionInfo(BaseModel):
@@ -122,7 +123,7 @@ async def create_claude_connection(
         type="claude_api",
         auth_type="api_key",
         credentials_encrypted=encrypt(req.api_key.strip()),
-        base_url="",
+        base_url=req.base_url.strip(),
         extra_config={"model": req.model},
         label="Claude API",
     )
@@ -172,9 +173,13 @@ async def test_connection(
     try:
         if conn.type == "claude_api":
             import anthropic
-            client = anthropic.AsyncAnthropic(api_key=creds)
+            client_kwargs = {"api_key": creds}
+            if conn.base_url:
+                client_kwargs["base_url"] = conn.base_url
+            client = anthropic.AsyncAnthropic(**client_kwargs)
+            model = (conn.extra_config or {}).get("model", "claude-haiku-4-5-20251001")
             await client.messages.create(
-                model="claude-haiku-4-5-20251001", max_tokens=10,
+                model=model, max_tokens=10,
                 messages=[{"role": "user", "content": "hi"}],
             )
         elif conn.type == "github":

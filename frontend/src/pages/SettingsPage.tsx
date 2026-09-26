@@ -200,6 +200,7 @@ function ConnectionsTab() {
   // Claude form state
   const [claudeKey, setClaudeKey] = useState('')
   const [claudeModel, setClaudeModel] = useState('claude-sonnet-4-6')
+  const [claudeBaseUrl, setClaudeBaseUrl] = useState('')
   const [claudeShowKey, setClaudeShowKey] = useState(false)
 
   async function load() {
@@ -235,7 +236,7 @@ function ConnectionsTab() {
     if (!claudeKey.trim()) { setError('API key is required'); return }
     setSaving(true); setError('')
     try {
-      await api.createClaudeConnection(claudeKey.trim(), claudeModel)
+      await api.createClaudeConnection(claudeKey.trim(), claudeModel, claudeBaseUrl.trim())
       setClaudeKey(''); await load()
     } catch (e: any) { setError(e.response?.data?.detail || 'Failed') }
     finally { setSaving(false) }
@@ -340,6 +341,11 @@ function ConnectionsTab() {
                 <option value="claude-opus-4-7">Claude Opus 4.7 (most capable)</option>
                 <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (fastest, cheapest)</option>
               </select>
+            </div>
+            <div>
+              <Label>Base URL (optional — for corporate gateway/proxy)</Label>
+              <Input value={claudeBaseUrl} onChange={setClaudeBaseUrl} placeholder="https://gateway.example.com" />
+              <p className="text-[10px] text-slate-400 mt-1">Leave empty for direct Anthropic API. Set for corporate proxy (e.g. gateway.raicode.no)</p>
             </div>
             <div className="flex justify-end">
               <Button onClick={() => saveClaude(s => {}, e => {})} disabled={!claudeKey.trim()}>Save Claude Connection</Button>

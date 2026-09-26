@@ -43,6 +43,7 @@ class WorkflowState(TypedDict, total=False):
     github_url: str
     github_token: str
     claude_key: str
+    claude_base_url: str
     owner: str
     develop_skill: str
     review_skill: str
@@ -77,6 +78,7 @@ async def setup_node(state: WorkflowState) -> WorkflowState:
         connections = result.scalars().all()
         github_token = ""
         claude_key = ""
+        claude_base_url = ""
         owner = ""
         for conn in connections:
             if conn.type == "github":
@@ -84,6 +86,7 @@ async def setup_node(state: WorkflowState) -> WorkflowState:
                 owner = (conn.extra_config or {}).get("owner", "")
             elif conn.type == "claude_api":
                 claude_key = decrypt(conn.credentials_encrypted)
+                claude_base_url = conn.base_url or ""
 
         if not github_token or not claude_key:
             return {**state, "status": "error", "error": "GitHub or Claude connection missing"}
@@ -154,7 +157,7 @@ async def setup_node(state: WorkflowState) -> WorkflowState:
         "title": task.title, "body": task.body,
         "repo_owner": task.repo_owner, "repo_name": task.repo_name,
         "issue_number": task.github_issue_number, "github_url": task.github_url,
-        "github_token": github_token, "claude_key": claude_key, "owner": owner,
+        "github_token": github_token, "claude_key": claude_key, "claude_base_url": claude_base_url, "owner": owner,
         "develop_skill": find_skill("develop"), "review_skill": find_skill("review"),
         "plan_skill": find_skill("plan"),
         "github_username": gh_username, "github_email": gh_email,
@@ -178,6 +181,7 @@ async def plan_node(state: WorkflowState) -> WorkflowState:
 
     result = await run_agent_loop(
         api_key=state["claude_key"], model="claude-sonnet-4-6",
+        base_url=state.get("claude_base_url", ""),
         system_prompt=system, user_message=user_msg,
         tools=tools, tool_executor=_make_executor(state),
         on_progress=_make_cb(run_id, "plan"),
@@ -228,6 +232,7 @@ async def develop_node(state: WorkflowState) -> WorkflowState:
 
     result = await run_agent_loop(
         api_key=state["claude_key"], model="claude-sonnet-4-6",
+        base_url=state.get("claude_base_url", ""),
         system_prompt=system, user_message=user_msg,
         tools=tools, tool_executor=_make_executor(state),
         on_progress=_make_cb(run_id, "develop"),
@@ -265,6 +270,7 @@ async def review_node(state: WorkflowState) -> WorkflowState:
 
     result = await run_agent_loop(
         api_key=state["claude_key"], model="claude-sonnet-4-6",
+        base_url=state.get("claude_base_url", ""),
         system_prompt=system, user_message=user_msg,
         tools=tools, tool_executor=_make_executor(state),
         on_progress=_make_cb(run_id, "review"),
@@ -289,6 +295,7 @@ async def commit_pr_node(state: WorkflowState) -> WorkflowState:
     executor = _make_executor(state)
     result = await run_agent_loop(
         api_key=state["claude_key"], model="claude-sonnet-4-6",
+        base_url=state.get("claude_base_url", ""),
         system_prompt=system, user_message=user_msg,
         tools=tools, tool_executor=executor,
         on_progress=_make_cb(run_id, "commit_pr"),
@@ -338,6 +345,7 @@ async def pipeline_node(state: WorkflowState) -> WorkflowState:
 
     result = await run_agent_loop(
         api_key=state["claude_key"], model="claude-sonnet-4-6",
+        base_url=state.get("claude_base_url", ""),
         system_prompt=system, user_message=user_msg,
         tools=tools, tool_executor=_make_executor(state),
         on_progress=_make_cb(run_id, "pipeline"),
