@@ -342,10 +342,14 @@ async def pull_tasks(
         task = existing.scalar_one_or_none()
 
         if task:
-            # Skip if already started or completed
-            if task.status in ("in_progress", "done", "failed"):
+            # Skip if actively running or already done
+            if task.status in ("in_progress", "done"):
                 continue
-            # Update existing open task
+            # Reset failed/error/interrupted/ready tasks back to backlog for retry
+            if task.status in ("error", "failed", "interrupted", "ready", "in_review"):
+                task.status = "backlog"
+                task.run_id = None
+            # Update task details from GitHub
             task.title = issue.get("title", task.title)
             task.body = (issue.get("body") or "")[:5000]
             task.github_url = issue.get("html_url", task.github_url)
