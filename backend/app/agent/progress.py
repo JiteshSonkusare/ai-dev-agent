@@ -71,7 +71,7 @@ async def append_tool_call(run_id: str, step_name: str, tool_call: dict) -> None
         step = result.scalar_one_or_none()
         if not step:
             return
-        calls = step.tool_calls or []
+        calls = list(step.tool_calls or [])
         calls.append(tool_call)
         step.tool_calls = calls
         await db.commit()
@@ -86,7 +86,7 @@ async def append_reasoning(run_id: str, step_name: str, reasoning: dict) -> None
         step = result.scalar_one_or_none()
         if not step:
             return
-        entries = step.reasoning or []
+        entries = list(step.reasoning or [])
         entries.append(reasoning)
         step.reasoning = entries
         await db.commit()

@@ -27,7 +27,7 @@ async def run_agent_loop(
     tools: list[dict],
     tool_executor: ToolExecutor,
     on_progress: Callable[[str, dict], Awaitable[None]],
-    max_iterations: int = 50,
+    max_iterations: int = 100,
     base_url: str = "",
 ) -> dict:
     """
@@ -55,6 +55,7 @@ async def run_agent_loop(
     total_out = 0
 
     for iteration in range(max_iterations):
+        print(f"[LOOP] iter={iteration} messages={len(messages)}", flush=True)
         try:
             response = await client.messages.create(
                 model=model,
@@ -83,6 +84,7 @@ async def run_agent_loop(
         # Track tokens
         total_in += response.usage.input_tokens
         total_out += response.usage.output_tokens
+        print(f"[LOOP] iter={iteration} stop={response.stop_reason} blocks={[b.type for b in response.content]} in={response.usage.input_tokens} out={response.usage.output_tokens}", flush=True)
 
         await on_progress("tokens", {
             "input": response.usage.input_tokens,
