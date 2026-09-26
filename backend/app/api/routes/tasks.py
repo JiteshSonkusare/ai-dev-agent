@@ -1,4 +1,5 @@
 from typing import Optional, List
+from datetime import datetime, timezone
 
 import asyncio
 import httpx
@@ -498,6 +499,7 @@ async def get_task_progress(
     run_data = None
     steps_data = []
     gate_data = None
+    gates_list = []
 
     if task.run_id:
         run = await db.get(Run, task.run_id)
@@ -602,13 +604,15 @@ async def approve_gate(
     db: AsyncSession = Depends(get_db),
 ):
     """Approve a pending gate to continue the agent workflow."""
+    run = await db.get(Run, run_id)
+    if not run or run.user_id != user.id:
+        raise HTTPException(404, "Run not found")
     gate = await db.get(Gate, gate_id)
     if not gate or gate.run_id != run_id:
         raise HTTPException(404, "Gate not found")
     if gate.status != "pending":
         raise HTTPException(400, f"Gate is already '{gate.status}'")
 
-    from datetime import datetime, timezone
     gate.status = "approved"
     gate.resolved_at = datetime.now(timezone.utc)
     gate.developer_response = "approved"
@@ -624,13 +628,15 @@ async def reject_gate(
     db: AsyncSession = Depends(get_db),
 ):
     """Reject a pending gate to stop the agent workflow."""
+    run = await db.get(Run, run_id)
+    if not run or run.user_id != user.id:
+        raise HTTPException(404, "Run not found")
     gate = await db.get(Gate, gate_id)
     if not gate or gate.run_id != run_id:
         raise HTTPException(404, "Gate not found")
     if gate.status != "pending":
         raise HTTPException(400, f"Gate is already '{gate.status}'")
 
-    from datetime import datetime, timezone
     gate.status = "rejected"
     gate.resolved_at = datetime.now(timezone.utc)
     gate.developer_response = "rejected"
@@ -656,7 +662,6 @@ async def cancel_task(
         run = await db.get(Run, task.run_id)
         if run and run.status in ("running", "awaiting_gate"):
             run.status = "interrupted"
-            from datetime import datetime, timezone
             run.finished_at = datetime.now(timezone.utc)
             run.error = "Cancelled by user"
     await db.commit()

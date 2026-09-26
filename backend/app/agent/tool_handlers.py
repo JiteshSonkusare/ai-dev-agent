@@ -86,8 +86,8 @@ class ToolExecutor:
         file_pattern = inp.get("file_pattern", "")
         search_dir = self._safe_path(rel_path)
 
-        cmd = ["grep", "-rn", "--include", file_pattern, query, search_dir] if file_pattern else \
-              ["grep", "-rn", query, search_dir]
+        cmd = ["grep", "-rn", "--include", file_pattern, "--", query, search_dir] if file_pattern else \
+              ["grep", "-rn", "--", query, search_dir]
 
         try:
             proc = await asyncio.create_subprocess_exec(
