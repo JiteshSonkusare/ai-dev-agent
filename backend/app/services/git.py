@@ -24,6 +24,9 @@ class GitService:
         self._username = username
 
     def _auth_url(self, repo_url: str) -> str:
+        # Skip if URL already has auth (e.g. from GitHubService.get_clone_url)
+        if "@" in repo_url:
+            return repo_url
         if self._pat and "://" in repo_url:
             protocol, rest = repo_url.split("://", 1)
             return f"{protocol}://{self._username}:{self._pat}@{rest}"

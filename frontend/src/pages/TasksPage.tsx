@@ -291,7 +291,7 @@ export default function TasksPage() {
   async function loadTasks() {
     setLoading(true)
     try {
-      setTasks(await api.listTasks(undefined, undefined, 'open'))
+      setTasks(await api.listTasks(undefined, undefined, 'backlog'))
     } catch {
       setTasks([])
     } finally {

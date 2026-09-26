@@ -32,7 +32,7 @@ class GitHubService:
             return resp.json()
 
     def get_clone_url(self, owner: str, repo: str) -> str:
-        return f"https://{self._token}@github.com/{owner}/{repo}.git"
+        return f"https://x-access-token:{self._token}@github.com/{owner}/{repo}.git"
 
     async def get_pull_request_diff(self, owner: str, repo: str, pr_number: int) -> list[dict]:
         """Get files changed in a PR with diffs."""

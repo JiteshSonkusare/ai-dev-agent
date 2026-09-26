@@ -197,7 +197,7 @@ class Task(Base):
     body: Mapped[str] = mapped_column(Text, default="")
     repo_owner: Mapped[str] = mapped_column(String(255))
     repo_name: Mapped[str] = mapped_column(String(255))
-    status: Mapped[str] = mapped_column(String(30), default="open")
+    status: Mapped[str] = mapped_column(String(30), default="backlog")
     priority: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     labels: Mapped[list] = mapped_column(JSONText, default=list)
     story_points: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

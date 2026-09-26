@@ -431,8 +431,8 @@ async def start_task(
     task = await db.get(Task, task_id)
     if not task or task.user_id != user.id:
         raise HTTPException(404, "Task not found")
-    if task.status != "open":
-        raise HTTPException(400, f"Task is already '{task.status}'. Only 'open' tasks can be started.")
+    if task.status != "backlog":
+        raise HTTPException(400, f"Task is already '{task.status}'. Only 'backlog' tasks can be started.")
 
     # Verify connections exist
     conns = await db.execute(select(Connection).where(Connection.user_id == user.id))
@@ -461,7 +461,7 @@ async def start_task(
 
     # Spawn background worker
     from app.agent.worker import start_agent_task
-    asyncio.create_task(start_agent_task(task_id, user.id))
+    asyncio.create_task(start_agent_task(task_id, user.id, run_id))
 
     return StartTaskResponse(run_id=run_id, status="started")
 

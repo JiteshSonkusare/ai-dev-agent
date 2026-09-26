@@ -107,13 +107,14 @@ async def setup_node(state: WorkflowState) -> WorkflowState:
         gh_username = user.github_username or "" if user else ""
         gh_email = user.github_email or "" if user else ""
 
-        # Create Run
-        run = Run(user_id=user_id, task_id=task_id, status="running", model="claude-sonnet-4-6")
-        db.add(run)
+        # Use existing Run (created by the API route)
+        run_id = state.get("run_id", "")
+        if not run_id:
+            return {**state, "status": "error", "error": "No run_id provided"}
+
         task.status = "in_progress"
-        task.run_id = run.id
+        task.run_id = run_id
         await db.commit()
-        run_id = run.id
 
     # Workspace
     workspace = create_workspace(task_id)
@@ -123,9 +124,11 @@ async def setup_node(state: WorkflowState) -> WorkflowState:
     github = GitHubService(token=github_token)
     clone_url = github.get_clone_url(task.repo_owner, task.repo_name)
 
+    logger.info(f"Setup: cloning {task.repo_owner}/{task.repo_name} to {workspace}")
     await prog.update_run(run_id, workspace_path=workspace, branch_name=branch, current_step="setup")
 
     rc, msg = await git.clone(clone_url, workspace)
+    logger.info(f"Setup: clone result rc={rc} msg={msg[:200]}")
     if rc != 0:
         return {**state, "run_id": run_id, "status": "error", "error": f"Clone failed: {msg}"}
 
@@ -158,6 +161,7 @@ async def plan_node(state: WorkflowState) -> WorkflowState:
     run_id = state["run_id"]
     await prog.update_run(run_id, current_step="plan")
     await prog.create_run_step(run_id, "plan")
+    await _update_task_status(state["task_id"], "ready")
 
     system, user_msg = build_plan_prompt(state["title"], state["body"], state.get("plan_skill", ""))
     tools = [t for t in AGENT_TOOLS if t["name"] in ("read_file", "list_files", "search_files")]
@@ -193,6 +197,7 @@ async def develop_node(state: WorkflowState) -> WorkflowState:
     run_id = state["run_id"]
     await prog.update_run(run_id, current_step="develop")
     await prog.create_run_step(run_id, "develop")
+    await _update_task_status(state["task_id"], "in_progress")
 
     system, user_msg = build_develop_prompt(state["title"], state["plan_text"], state.get("develop_skill", ""))
     tools = [t for t in AGENT_TOOLS if t["name"] in (
@@ -219,6 +224,7 @@ async def review_node(state: WorkflowState) -> WorkflowState:
     run_id = state["run_id"]
     await prog.update_run(run_id, current_step="review")
     await prog.create_run_step(run_id, "review")
+    await _update_task_status(state["task_id"], "in_review")
 
     system, user_msg = build_review_prompt(state["title"], state.get("review_skill", ""))
     tools = [t for t in AGENT_TOOLS if t["name"] in (
@@ -308,11 +314,15 @@ async def finish_node(state: WorkflowState) -> WorkflowState:
     run_id = state.get("run_id", "")
     task_id = state["task_id"]
     final_status = state.get("status", "done")
+    error_msg = state.get("error", "")
+
+    logger.info(f"Finish node: status={final_status} error={error_msg[:200]}")
 
     if run_id:
         await prog.update_run(
             run_id, status=final_status, current_step="done",
             finished_at=datetime.now(timezone.utc),
+            error=error_msg,
             pr_urls_json=[state.get("pr_url", "")] if state.get("pr_url") else [],
         )
     await _update_task_status(task_id, final_status if final_status == "done" else "error")
@@ -370,14 +380,16 @@ def build_workflow_graph() -> StateGraph:
 
 # ── Entry Point ──────────────────────────────────────────────────────────────
 
-async def start_agent_task(task_id: str, user_id: str) -> None:
+async def start_agent_task(task_id: str, user_id: str, run_id: str) -> None:
     try:
         graph = build_workflow_graph()
         app = graph.compile()
-        await app.ainvoke({"task_id": task_id, "user_id": user_id, "run_id": "", "status": "", "error": ""})
+        await app.ainvoke({"task_id": task_id, "user_id": user_id, "run_id": run_id, "status": "", "error": ""})
     except Exception as e:
         logger.exception(f"Agent workflow failed for task {task_id}: {e}")
         try:
+            await prog.update_run(run_id, status="error", error=str(e)[:500],
+                                  finished_at=datetime.now(timezone.utc))
             await _update_task_status(task_id, "error")
         except Exception:
             pass
