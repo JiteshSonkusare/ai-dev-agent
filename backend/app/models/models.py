@@ -202,5 +202,6 @@ class Task(Base):
     labels: Mapped[list] = mapped_column(JSONText, default=list)
     story_points: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     due_date: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    github_status: Mapped[str] = mapped_column(String(30), default="open")
     github_created_at: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     pulled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

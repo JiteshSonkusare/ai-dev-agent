@@ -337,7 +337,8 @@ async def finish_node(state: WorkflowState) -> WorkflowState:
             error=error_msg,
             pr_urls_json=[state.get("pr_url", "")] if state.get("pr_url") else [],
         )
-    await _update_task_status(task_id, final_status if final_status == "done" else "error")
+    await _update_task_status(task_id, final_status if final_status == "done" else "error",
+                              github_status="closed" if final_status == "done" else None)
     cleanup_workspace(task_id)
     return state
 
@@ -449,9 +450,11 @@ async def _update_tokens(run_id: str, result: dict) -> None:
             run.total_output_tokens += result.get("total_tokens_out", 0)
             await db.commit()
 
-async def _update_task_status(task_id: str, status: str) -> None:
+async def _update_task_status(task_id: str, status: str, github_status: str = None) -> None:
     async with async_session() as db:
         task = await db.get(Task, task_id)
         if task:
             task.status = status
+            if github_status:
+                task.github_status = github_status
             await db.commit()

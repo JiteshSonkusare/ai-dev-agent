@@ -41,6 +41,7 @@ class TaskResponse(BaseModel):
     id: str
     github_issue_number: int
     github_url: str
+    github_status: str
     title: str
     body: str
     repo_owner: str
@@ -104,6 +105,7 @@ def _task_to_response(task: Task) -> TaskResponse:
         id=task.id,
         github_issue_number=task.github_issue_number,
         github_url=task.github_url,
+        github_status=task.github_status or "open",
         title=task.title,
         body=task.body,
         repo_owner=task.repo_owner,
@@ -353,6 +355,7 @@ async def pull_tasks(
             task.title = issue.get("title", task.title)
             task.body = (issue.get("body") or "")[:5000]
             task.github_url = issue.get("html_url", task.github_url)
+            task.github_status = issue.get("state", task.github_status or "open")
             task.labels = [{"name": l["name"], "color": l.get("color", "")} for l in labels_raw]
             task.priority = _extract_priority(labels_raw)
             task.story_points = _extract_story_points(labels_raw)
@@ -363,6 +366,7 @@ async def pull_tasks(
                 user_id=user.id,
                 github_issue_number=issue["number"],
                 github_url=issue.get("html_url", issue.get("url", "")),
+                github_status=issue.get("state", "open"),
                 title=issue.get("title", ""),
                 body=(issue.get("body") or "")[:5000],
                 repo_owner=r_owner,

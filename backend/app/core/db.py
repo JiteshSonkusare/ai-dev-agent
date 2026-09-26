@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import text
 
 from app.core.config import settings
 
@@ -19,3 +20,16 @@ async def get_db() -> AsyncSession:
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Lightweight migrations — add missing columns to existing tables
+    _migrations = [
+        ("tasks", "github_status", "NVARCHAR(30) DEFAULT 'open'"),
+    ]
+    async with engine.begin() as conn:
+        for table, column, col_type in _migrations:
+            try:
+                await conn.execute(text(
+                    f"ALTER TABLE {table} ADD {column} {col_type}"
+                ))
+            except Exception:
+                pass  # column already exists

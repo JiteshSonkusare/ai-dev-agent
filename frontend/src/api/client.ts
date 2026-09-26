@@ -198,6 +198,7 @@ export interface TaskItem {
   id: string
   github_issue_number: number
   github_url: string
+  github_status: string
   title: string
   body: string
   repo_owner: string

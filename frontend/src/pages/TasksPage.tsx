@@ -206,6 +206,14 @@ function TaskDrawer({ task, onClose }: { task: TaskItem; onClose: () => void }) 
               </div>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/40">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">GitHub Issue</p>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[12px] font-medium ${task.github_status === 'closed' ? 'text-purple-500' : 'text-emerald-500'}`}>
+                  {task.github_status === 'closed' ? '● Closed' : '● Open'}
+                </span>
+              </div>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/40">
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Created</p>
               <div className="flex items-center gap-1.5">
                 <Clock size={12} className="text-slate-400" />
@@ -486,6 +494,8 @@ export default function TasksPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[12px] font-mono font-bold text-[#DA7756]">#{task.github_issue_number}</span>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${task.github_status === 'closed' ? 'bg-purple-500' : 'bg-emerald-500'}`}
+                        title={`GitHub: ${task.github_status || 'open'}`} />
                       <span className="text-[13px] font-medium text-slate-800 dark:text-slate-100 truncate">{task.title}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-1">
