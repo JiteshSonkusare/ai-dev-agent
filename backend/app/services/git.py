@@ -36,7 +36,7 @@ class GitService:
         os.makedirs(dest, exist_ok=True)
         url = self._auth_url(repo_url)
         rc, out, err = await _run(
-            ["git", "clone", "--branch", branch, "--single-branch", "--depth", "1", url, "."],
+            ["git", "clone", "--branch", branch, "--single-branch", url, "."],
             cwd=dest,
         )
         return rc, err if rc != 0 else out

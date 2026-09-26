@@ -183,6 +183,21 @@ class Gate(Base):
     run: Mapped["Run"] = relationship(back_populates="gates")
 
 
+# ── Task Logs ───────────────────────────────────────────────────────────────
+
+class TaskLog(Base):
+    __tablename__ = "task_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[Optional[str]] = mapped_column(ForeignKey("runs.id"), nullable=True, index=True)
+    level: Mapped[str] = mapped_column(String(10), default="info")  # info | warning | error
+    message: Mapped[str] = mapped_column(Text)
+    step_name: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    details: Mapped[Optional[dict]] = mapped_column(JSONText, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 # ── Tasks ────────────────────────────────────────────────────────────────────
 
 class Task(Base):

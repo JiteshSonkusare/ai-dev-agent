@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.encryption import decrypt
-from app.models.models import User, Task, Run, RunStep, Gate, Connection
+from app.models.models import User, Task, Run, RunStep, Gate, TaskLog, Connection
 from app.api.deps import get_current_user
 
 router = APIRouter()
@@ -423,6 +423,8 @@ class TaskProgressResponse(BaseModel):
     run: Optional[dict] = None
     steps: list = []
     pending_gate: Optional[dict] = None
+    gates: list = []
+    logs: list = []
 
 
 class GateActionResponse(BaseModel):
@@ -467,9 +469,16 @@ async def start_task(
     await db.commit()
     run_id = run.id
 
-    # Spawn background worker
-    from app.agent.worker import start_agent_task
-    asyncio.create_task(start_agent_task(task_id, user.id, run_id))
+    # Spawn background worker — wrapped so DB doesn't get orphaned on failure
+    try:
+        from app.agent.worker import start_agent_task
+        asyncio.create_task(start_agent_task(task_id, user.id, run_id))
+    except Exception as e:
+        run.status = "error"
+        run.error = f"Failed to start agent: {str(e)[:500]}"
+        task.status = "error"
+        await db.commit()
+        return StartTaskResponse(run_id=run_id, status="error")
 
     return StartTaskResponse(run_id=run_id, status="started")
 
@@ -539,11 +548,49 @@ async def get_task_progress(
                     "created_at": gate.created_at.isoformat() if gate.created_at else None,
                 }
 
+            # Load all gates (for step detail view)
+            all_gates_result = await db.execute(
+                select(Gate).where(Gate.run_id == run.id).order_by(Gate.created_at)
+            )
+            gates_list = [
+                {
+                    "id": g.id,
+                    "gate_type": g.gate_type,
+                    "step_name": g.step_name,
+                    "status": g.status,
+                    "payload": g.payload,
+                    "created_at": g.created_at.isoformat() if g.created_at else None,
+                    "resolved_at": g.resolved_at.isoformat() if g.resolved_at else None,
+                }
+                for g in all_gates_result.scalars().all()
+            ]
+
+    # Load logs
+    logs_list = []
+    if task.run_id:
+        logs_result = await db.execute(
+            select(TaskLog).where(TaskLog.task_id == task_id, TaskLog.run_id == task.run_id)
+            .order_by(TaskLog.created_at)
+        )
+        logs_list = [
+            {
+                "id": log.id,
+                "level": log.level,
+                "message": log.message,
+                "step_name": log.step_name,
+                "details": log.details,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs_result.scalars().all()
+        ]
+
     return TaskProgressResponse(
         task=task_data,
         run=run_data,
         steps=steps_data,
         pending_gate=gate_data,
+        gates=gates_list if task.run_id else [],
+        logs=logs_list,
     )
 
 

@@ -24,6 +24,7 @@ from app.agent.prompts import (
     build_commit_pr_prompt, build_pipeline_prompt,
 )
 from app.agent import progress as prog
+from app.agent.progress import add_task_log as _log
 
 logger = logging.getLogger(__name__)
 
@@ -126,10 +127,12 @@ async def setup_node(state: WorkflowState) -> WorkflowState:
 
     logger.info(f"Setup: cloning {task.repo_owner}/{task.repo_name} to {workspace}")
     await prog.update_run(run_id, workspace_path=workspace, branch_name=branch, current_step="setup")
+    await _log(task_id, run_id, "info", f"Setup: cloning {task.repo_owner}/{task.repo_name}", "setup")
 
     rc, msg = await git.clone(clone_url, workspace)
     logger.info(f"Setup: clone result rc={rc} msg={msg[:200]}")
     if rc != 0:
+        await _log(task_id, run_id, "error", f"Clone failed: {msg[:300]}", "setup")
         return {**state, "run_id": run_id, "status": "error", "error": f"Clone failed: {msg}"}
 
     for key, val in [("user.name", gh_username), ("user.email", gh_email)]:
@@ -142,8 +145,10 @@ async def setup_node(state: WorkflowState) -> WorkflowState:
 
     rc, msg = await git.checkout_new_branch(workspace, branch)
     if rc != 0:
+        await _log(task_id, run_id, "error", f"Branch creation failed: {msg[:300]}", "setup")
         return {**state, "run_id": run_id, "status": "error", "error": f"Branch failed: {msg}"}
 
+    await _log(task_id, run_id, "info", f"Setup complete: branch {branch}", "setup")
     return {
         **state, "run_id": run_id,
         "title": task.title, "body": task.body,
@@ -158,10 +163,11 @@ async def setup_node(state: WorkflowState) -> WorkflowState:
 
 
 async def plan_node(state: WorkflowState) -> WorkflowState:
-    run_id = state["run_id"]
+    run_id, task_id = state["run_id"], state["task_id"]
     await prog.update_run(run_id, current_step="plan")
     await prog.create_run_step(run_id, "plan")
-    await _update_task_status(state["task_id"], "ready")
+    await _update_task_status(task_id, "ready")
+    await _log(task_id, run_id, "info", "Plan step started", "plan")
 
     plan_skill = state.get("plan_skill", "")
     skill_msg = f"Using plan skill instructions" if plan_skill else "No plan skill configured — using default AI reasoning"
@@ -184,24 +190,29 @@ async def plan_node(state: WorkflowState) -> WorkflowState:
     await _update_tokens(run_id, result)
 
     if result["status"] != "completed":
+        await _log(task_id, run_id, "error", "Plan step failed", "plan")
         return {**state, "status": "error", "error": "Plan step failed"}
+    await _log(task_id, run_id, "info", "Plan step completed", "plan")
     return {**state, "plan_text": plan_text}
 
 
 async def gate_plan_node(state: WorkflowState) -> WorkflowState:
-    run_id = state["run_id"]
+    run_id, task_id = state["run_id"], state["task_id"]
     await prog.update_run(run_id, status="awaiting_gate", current_step="plan")
     gate_id = await prog.create_gate(run_id, "plan", "plan_approval", {"plan": state["plan_text"]})
+    await _log(task_id, run_id, "info", "Awaiting plan approval", "plan")
     status = await _wait_for_gate(gate_id)
+    await _log(task_id, run_id, "info", f"Plan approval: {status}", "plan")
     await prog.update_run(run_id, status="running")
     return {**state, "plan_gate_status": status}
 
 
 async def develop_node(state: WorkflowState) -> WorkflowState:
-    run_id = state["run_id"]
+    run_id, task_id = state["run_id"], state["task_id"]
     await prog.update_run(run_id, current_step="develop")
     await prog.create_run_step(run_id, "develop")
-    await _update_task_status(state["task_id"], "in_progress")
+    await _update_task_status(task_id, "in_progress")
+    await _log(task_id, run_id, "info", "Develop step started", "develop")
 
     develop_skill = state.get("develop_skill", "")
     skill_msg = f"Using develop skill instructions for coding" if develop_skill else "No develop skill configured — using default AI reasoning"
@@ -224,15 +235,18 @@ async def develop_node(state: WorkflowState) -> WorkflowState:
     await _update_tokens(run_id, result)
 
     if result["status"] != "completed":
+        await _log(task_id, run_id, "error", "Develop step failed", "develop")
         return {**state, "status": "error", "error": "Develop step failed"}
+    await _log(task_id, run_id, "info", "Develop step completed", "develop")
     return state
 
 
 async def review_node(state: WorkflowState) -> WorkflowState:
-    run_id = state["run_id"]
+    run_id, task_id = state["run_id"], state["task_id"]
     await prog.update_run(run_id, current_step="review")
     await prog.create_run_step(run_id, "review")
-    await _update_task_status(state["task_id"], "in_review")
+    await _update_task_status(task_id, "in_review")
+    await _log(task_id, run_id, "info", "Review step started", "review")
 
     review_skill = state.get("review_skill", "")
     skill_msg = f"Using review skill instructions for code review" if review_skill else "No review skill configured — using default AI reasoning"
@@ -253,13 +267,15 @@ async def review_node(state: WorkflowState) -> WorkflowState:
     await prog.complete_step(run_id, "review",
                              status="completed" if result["status"] == "completed" else "failed")
     await _update_tokens(run_id, result)
+    await _log(task_id, run_id, "info", f"Review step {'completed' if result['status'] == 'completed' else 'failed'}", "review")
     return state
 
 
 async def commit_pr_node(state: WorkflowState) -> WorkflowState:
-    run_id = state["run_id"]
+    run_id, task_id = state["run_id"], state["task_id"]
     await prog.update_run(run_id, current_step="commit_pr")
     await prog.create_run_step(run_id, "commit_pr")
+    await _log(task_id, run_id, "info", "Commit & PR step started", "commit_pr")
 
     system, user_msg = build_commit_pr_prompt(state["title"], state["issue_number"])
     tools = [t for t in AGENT_TOOLS if t["name"] in ("git_commit", "git_push", "create_pull_request")]
@@ -280,25 +296,30 @@ async def commit_pr_node(state: WorkflowState) -> WorkflowState:
     await _update_tokens(run_id, result)
 
     if not pr_number:
+        await _log(task_id, run_id, "error", "PR not created", "commit_pr")
         return {**state, "status": "error", "error": "PR not created"}
+    await _log(task_id, run_id, "info", f"PR #{pr_number} created: {pr_url}", "commit_pr")
     return {**state, "pr_number": pr_number, "pr_url": pr_url}
 
 
 async def gate_merge_node(state: WorkflowState) -> WorkflowState:
-    run_id = state["run_id"]
+    run_id, task_id = state["run_id"], state["task_id"]
     await prog.update_run(run_id, status="awaiting_gate", current_step="commit_pr")
     gate_id = await prog.create_gate(run_id, "commit_pr", "merge_approval", {
         "pr_url": state.get("pr_url", ""), "pr_number": state.get("pr_number"),
     })
+    await _log(task_id, run_id, "info", "Awaiting merge approval", "commit_pr")
     status = await _wait_for_gate(gate_id)
+    await _log(task_id, run_id, "info", f"Merge approval: {status}", "commit_pr")
     await prog.update_run(run_id, status="running")
     return {**state, "merge_gate_status": status}
 
 
 async def pipeline_node(state: WorkflowState) -> WorkflowState:
-    run_id = state["run_id"]
+    run_id, task_id = state["run_id"], state["task_id"]
     await prog.update_run(run_id, current_step="pipeline")
     await prog.create_run_step(run_id, "pipeline")
+    await _log(task_id, run_id, "info", "Pipeline step started — merging PR and monitoring", "pipeline")
 
     github = GitHubService(token=state["github_token"])
     try:
@@ -319,6 +340,7 @@ async def pipeline_node(state: WorkflowState) -> WorkflowState:
     await prog.complete_step(run_id, "pipeline",
                              status="completed" if result["status"] == "completed" else "failed")
     await _update_tokens(run_id, result)
+    await _log(task_id, run_id, "info", "Pipeline step completed", "pipeline")
     return {**state, "status": "done"}
 
 
@@ -329,6 +351,8 @@ async def finish_node(state: WorkflowState) -> WorkflowState:
     error_msg = state.get("error", "")
 
     logger.info(f"Finish node: status={final_status} error={error_msg[:200]}")
+    await _log(task_id, run_id, final_status == "done" and "info" or "error",
+               f"Task finished: {final_status}" + (f" — {error_msg[:200]}" if error_msg else ""))
 
     if run_id:
         await prog.update_run(
@@ -401,6 +425,7 @@ async def start_agent_task(task_id: str, user_id: str, run_id: str) -> None:
     except Exception as e:
         logger.exception(f"Agent workflow failed for task {task_id}: {e}")
         try:
+            await _log(task_id, run_id, "error", f"Workflow crashed: {str(e)[:400]}")
             await prog.update_run(run_id, status="error", error=str(e)[:500],
                                   finished_at=datetime.now(timezone.utc))
             await _update_task_status(task_id, "error")

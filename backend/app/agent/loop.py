@@ -54,7 +54,7 @@ async def run_agent_loop(
         try:
             response = await client.messages.create(
                 model=model,
-                max_tokens=8096,
+                max_tokens=8192,
                 system=system_prompt,
                 messages=messages,
                 tools=tools,

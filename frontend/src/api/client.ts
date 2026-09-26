@@ -244,6 +244,16 @@ export interface GateData {
   status: string
   payload: any
   created_at: string
+  resolved_at?: string | null
+}
+
+export interface TaskLogEntry {
+  id: string
+  level: 'info' | 'warning' | 'error'
+  message: string
+  step_name: string | null
+  details: any
+  created_at: string
 }
 
 export interface TaskProgress {
@@ -261,6 +271,8 @@ export interface TaskProgress {
   } | null
   steps: RunStepData[]
   pending_gate: GateData | null
+  gates: GateData[]
+  logs: TaskLogEntry[]
 }
 
 // ── Workflow types ────────────────────────────────────────────────────────────

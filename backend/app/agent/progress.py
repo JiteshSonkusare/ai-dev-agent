@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import async_session
-from app.models.models import Run, RunStep, Gate
+from app.models.models import Run, RunStep, Gate, TaskLog
 
 
 async def _get_session() -> AsyncSession:
@@ -136,3 +136,48 @@ async def check_gate_status(gate_id: str) -> str:
     async with await _get_session() as db:
         gate = await db.get(Gate, gate_id)
         return gate.status if gate else "unknown"
+
+
+# ── Task Logs ───────────────────────────────────────────────────────────────
+
+
+async def add_task_log(
+    task_id: str, run_id: str, level: str, message: str,
+    step_name: str = None, details: dict = None,
+) -> None:
+    """Write a log entry for a task run."""
+    async with await _get_session() as db:
+        log = TaskLog(
+            task_id=task_id,
+            run_id=run_id,
+            level=level,
+            message=message,
+            step_name=step_name,
+            details=details,
+        )
+        db.add(log)
+        await db.commit()
+
+
+async def get_task_logs(task_id: str, run_id: str = None, step_name: str = None) -> list:
+    """Read log entries for a task, optionally filtered by run_id and step_name."""
+    async with await _get_session() as db:
+        query = select(TaskLog).where(TaskLog.task_id == task_id)
+        if run_id:
+            query = query.where(TaskLog.run_id == run_id)
+        if step_name:
+            query = query.where(TaskLog.step_name == step_name)
+        query = query.order_by(TaskLog.created_at)
+        result = await db.execute(query)
+        logs = result.scalars().all()
+        return [
+            {
+                "id": log.id,
+                "level": log.level,
+                "message": log.message,
+                "step_name": log.step_name,
+                "details": log.details,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ]
