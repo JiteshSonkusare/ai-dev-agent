@@ -389,6 +389,47 @@ async def pull_tasks(
     return [_task_to_response(t) for t in pulled]
 
 
+class ActiveTaskResponse(BaseModel):
+    id: str
+    github_issue_number: int
+    title: str
+    repo_name: str
+    status: str
+    run_status: str
+    current_step: str
+    started_at: Optional[str]
+
+
+@router.get("/tasks/active", response_model=List[ActiveTaskResponse])
+async def get_active_tasks(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get tasks with active runs (running or awaiting_gate) from DB."""
+    result = await db.execute(
+        select(Task, Run)
+        .join(Run, Run.id == Task.run_id)
+        .where(
+            Task.user_id == user.id,
+            Run.status.in_(["running", "awaiting_gate"]),
+        )
+        .order_by(Run.started_at.desc())
+    )
+    items = []
+    for task, run in result.all():
+        items.append(ActiveTaskResponse(
+            id=task.id,
+            github_issue_number=task.github_issue_number,
+            title=task.title,
+            repo_name=task.repo_name,
+            status=task.status,
+            run_status=run.status,
+            current_step=run.current_step,
+            started_at=run.started_at.isoformat() if run.started_at else None,
+        ))
+    return items
+
+
 @router.get("/tasks", response_model=List[TaskResponse])
 async def list_tasks(
     status: Optional[str] = None,

@@ -475,7 +475,6 @@ export default function TaskProgressPage() {
 
   useEffect(() => {
     if (isTerminal) {
-      localStorage.removeItem('cc_active_task')
       setUserPinned(false) // unpin to show final state
     }
   }, [isTerminal])
@@ -530,7 +529,6 @@ export default function TaskProgressPage() {
                   if (!confirm('Cancel this task? The agent will stop.')) return
                   try {
                     await api.cancelTask(taskId!)
-                    localStorage.removeItem('cc_active_task')
                     api.getTaskProgress(taskId!).then(setData)
                   } catch {}
                 }}

@@ -285,7 +285,6 @@ export default function PullTasksPage() {
                     setStartingId(task.id)
                     try {
                       await api.startTask(task.id)
-                      localStorage.setItem('cc_active_task', task.id)
                       navigate(`/tasks/${task.id}/progress`)
                     } catch { setStartingId(null) }
                   }}

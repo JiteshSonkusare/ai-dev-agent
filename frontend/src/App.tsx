@@ -9,6 +9,7 @@ import PullTasksPage from './pages/PullTasksPage'
 import TaskProgressPage from './pages/TaskProgressPage'
 import DashboardPage from './pages/DashboardPage'
 import SettingsPage from './pages/SettingsPage'
+import RunningJobsPage from './pages/RunningJobsPage'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
 
@@ -42,6 +43,7 @@ function AppRoutes() {
         <Route path="tasks" element={<TasksPage />} />
         <Route path="tasks/pull" element={<PullTasksPage />} />
         <Route path="tasks/:taskId/progress" element={<TaskProgressPage />} />
+        <Route path="running-jobs" element={<RunningJobsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

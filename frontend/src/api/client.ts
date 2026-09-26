@@ -464,6 +464,12 @@ export const api = {
     http.delete(`/skills/${skillId}`).then(r => r.data),
 
   // Tasks
+  getActiveTasks: () =>
+    http.get<Array<{
+      id: string; github_issue_number: number; title: string; repo_name: string;
+      status: string; run_status: string; current_step: string; started_at: string | null;
+    }>>('/tasks/active').then(r => r.data),
+
   getTaskSources: () =>
     http.get<SourcesResponse>('/tasks/sources').then(r => r.data),
 
