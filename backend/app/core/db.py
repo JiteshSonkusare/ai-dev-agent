@@ -33,3 +33,15 @@ async def init_db():
                 ))
             except Exception:
                 pass  # column already exists
+
+    # Cleanup orphaned runs from previous server crashes
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "UPDATE runs SET status = 'interrupted', error = 'Server restarted while running' "
+            "WHERE status IN ('running', 'awaiting_gate')"
+        ))
+        await conn.execute(text(
+            "UPDATE tasks SET status = 'error' "
+            "WHERE status IN ('in_progress', 'ready', 'in_review') "
+            "AND run_id IN (SELECT id FROM runs WHERE status = 'interrupted')"
+        ))
