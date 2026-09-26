@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Settings, Zap, Sun, Moon, ListTodo, LogOut, BarChart3, ChevronDown, Building2, User, Activity } from 'lucide-react'
+import { Settings, Zap, Sun, Moon, ListTodo, LogOut, BarChart3, ChevronDown, Building2, Activity } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 

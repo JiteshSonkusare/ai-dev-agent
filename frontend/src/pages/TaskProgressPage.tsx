@@ -437,6 +437,7 @@ export default function TaskProgressPage() {
   const [loading, setLoading] = useState(true)
   const [selectedStep, setSelectedStep] = useState('plan')
   const [userPinned, setUserPinned] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Polling
   useEffect(() => {
@@ -446,14 +447,21 @@ export default function TaskProgressPage() {
     async function poll() {
       try {
         const result = await api.getTaskProgress(taskId!)
-        if (active) setData(result)
+        if (active) {
+          setData(result)
+          // Stop polling on terminal state
+          const st = result?.run?.status
+          if (st && ['done', 'error', 'interrupted', 'failed'].includes(st)) {
+            if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+          }
+        }
       } catch { /* ignore */ }
       finally { if (active) setLoading(false) }
     }
 
     poll()
-    const interval = setInterval(poll, 2500)
-    return () => { active = false; clearInterval(interval) }
+    intervalRef.current = setInterval(poll, 2500)
+    return () => { active = false; if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [taskId])
 
   // Auto-follow current step (unless user pinned)

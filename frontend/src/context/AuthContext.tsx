@@ -28,8 +28,10 @@ const USER_KEY = 'cc_user'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
-    const stored = localStorage.getItem(USER_KEY)
-    return stored ? JSON.parse(stored) : null
+    try {
+      const stored = localStorage.getItem(USER_KEY)
+      return stored ? JSON.parse(stored) : null
+    } catch { return null }
   })
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) ?? '')
   const [loading, setLoading] = useState(true)
@@ -68,10 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     validateSession()
   }, [])
 
-  function persist(resp: AuthResponse) {
+  function persist(resp: AuthResponse, orgName?: string) {
     const u: AuthUser = {
       id: resp.user_id, email: resp.email, name: resp.name,
-      role: resp.role, org_name: null, github_username: null, github_email: null,
+      role: resp.role, org_name: orgName ?? null, github_username: null, github_email: null,
     }
     setUser(u)
     setToken(resp.token)
@@ -82,12 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string, orgName: string) {
     const resp = await api.login(email, password, orgName)
-    persist(resp)
+    persist(resp, orgName)
   }
 
   async function register(email: string, password: string, name: string, orgName: string) {
     const resp = await api.register(email, password, name, orgName)
-    persist(resp)
+    persist(resp, orgName)
     return resp
   }
 
@@ -96,7 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await api.getMe()
       const u: AuthUser = {
         id: profile.id, email: profile.email, name: profile.name,
-        role: profile.role, github_username: profile.github_username,
+        role: profile.role, org_name: profile.org_name,
+        github_username: profile.github_username,
         github_email: profile.github_email,
       }
       setUser(u)

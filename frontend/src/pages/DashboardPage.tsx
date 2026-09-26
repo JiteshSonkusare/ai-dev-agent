@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Area, AreaChart,
+  PieChart, Pie, Cell, Area, AreaChart,
 } from 'recharts'
 import { api } from '../api/client'
 import type { DashboardData } from '../api/client'

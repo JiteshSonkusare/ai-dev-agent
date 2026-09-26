@@ -282,7 +282,7 @@ function ConnectionsTab() {
                   {ghShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Create at <a href="https://github.com/settings/tokens/new" target="_blank" className="text-[#DA7756] hover:underline">github.com/settings/tokens</a> → select <strong>repo</strong> + <strong>workflow</strong> scopes</p>
+              <p className="text-[10px] text-slate-400 mt-1">Create at <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener noreferrer" className="text-[#DA7756] hover:underline">github.com/settings/tokens</a> → select <strong>repo</strong> + <strong>workflow</strong> scopes</p>
             </div>
             <div>
               <Label>GitHub URL</Label>
@@ -330,7 +330,7 @@ function ConnectionsTab() {
                   {claudeShowKey ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Get your key from <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-[#DA7756] hover:underline">console.anthropic.com</a></p>
+              <p className="text-[10px] text-slate-400 mt-1">Get your key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-[#DA7756] hover:underline">console.anthropic.com</a></p>
             </div>
             <div>
               <Label>Default Model</Label>

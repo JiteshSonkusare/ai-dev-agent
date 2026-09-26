@@ -51,7 +51,7 @@ function OnboardingPanel({ onBack }: { onBack: () => void }) {
       {!done ? (
         <div className="space-y-4">
           <div><Label>Organization Name</Label><Input value={orgName} onChange={setOrgName} placeholder="Acme Corp" /></div>
-          <div><Label>Your Name</Label><Input value={regName} onChange={setRegName} placeholder="Jitesh Sonkusare" /></div>
+          <div><Label>Your Name</Label><Input value={regName} onChange={setRegName} placeholder="John Doe" /></div>
           <div><Label>Email</Label><Input value={regEmail} onChange={setRegEmail} placeholder="jitesh@company.com" type="email" /></div>
           <div><Label>Password</Label><Input value={regPassword} onChange={setRegPassword} type="password" placeholder="Min 6 characters" onKeyDown={e => e.key === 'Enter' && handleRegister()} /></div>
           {regError && <ErrorMsg msg={regError} />}
