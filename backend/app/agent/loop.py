@@ -99,8 +99,8 @@ async def run_agent_loop(
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
 
-        # Check if agent is done
-        if response.stop_reason == "end_turn":
+        # Check if agent is done (end_turn or max_tokens with text content)
+        if response.stop_reason in ("end_turn", "max_tokens"):
             final_text = _extract_text(response)
             return {
                 "status": "completed",
