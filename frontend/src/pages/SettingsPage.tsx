@@ -121,93 +121,86 @@ function ProfileTab() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// CONNECTIONS TAB
+// CONNECTIONS TAB — GitHub + Claude only
 // ══════════════════════════════════════════════════════════════════════════════
 
-const CONN_LABELS: Record<ConnectionType, { label: string; desc: string }> = {
-  claude_api: { label: 'Claude API', desc: 'Anthropic API key' },
-  atlassian: { label: 'Jira', desc: 'Issue tracking' },
-  azure_devops_boards: { label: 'Azure Boards', desc: 'Issue tracking' },
-  azure_devops: { label: 'Azure Repos', desc: 'Code repository' },
-  github: { label: 'GitHub', desc: 'Authentication — works across all repos' },
-}
-
-function AddConnectionForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [type, setType] = useState<ConnectionType>('claude_api')
-  const [authType, setAuthType] = useState<AuthType>('api_key')
-  const [credentials, setCredentials] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [label, setLabel] = useState('')
-  const [model, setModel] = useState('claude-sonnet-4-6')
-  const [owner, setOwner] = useState('')
+function ConnectionCard({ type, title, icon: Icon, iconBg, connections, onSave, onDelete, onTest, children }: {
+  type: string; title: string; icon: typeof Bot; iconBg: string
+  connections: ConnectionInfo[]; onSave: () => void; onDelete: (id: string) => void; onTest: (id: string) => Promise<string>
+  children: (props: { saving: boolean; error: string; setError: (e: string) => void; setSaving: (s: boolean) => void }) => React.ReactNode
+}) {
+  const existing = connections.find(c => c.type === type)
+  const [editing, setEditing] = useState(!existing)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [showCreds, setShowCreds] = useState(false)
-
-  useEffect(() => { setAuthType(type === 'claude_api' ? 'api_key' : 'pat') }, [type])
-
-  async function handleSave() {
-    if (!credentials.trim()) { setError('Credentials required'); return }
-    setSaving(true); setError('')
-    const extra_config: Record<string, string> = {}
-    if (type === 'claude_api' && model) extra_config.model = model
-    if (type === 'github' && owner) extra_config.owner = owner
-    try {
-      await api.createConnection({ type, auth_type: authType, credentials: credentials.trim(), base_url: baseUrl.trim(), extra_config, label: label.trim() || undefined })
-      onCreated(); onClose()
-    } catch (e: any) { setError(e.response?.data?.detail || 'Failed') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--bg-card)] rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-700/40">
-          <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">Add Connection</h3>
-        </div>
-        <div className="px-5 py-4 space-y-3">
-          <div><Label>Type</Label><select value={type} onChange={e => setType(e.target.value as ConnectionType)} className="w-full bg-[var(--bg-input)] border border-slate-300 dark:border-slate-600/60 rounded-lg px-3 py-2 text-[13px] text-slate-900 dark:text-slate-100">{Object.entries(CONN_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select></div>
-          <div><Label>Label</Label><Input value={label} onChange={setLabel} placeholder={CONN_LABELS[type].label} /></div>
-          <div><Label>{type === 'claude_api' ? 'API Key' : 'PAT / Token'}</Label><div className="relative"><Input value={credentials} onChange={setCredentials} type={showCreds ? 'text' : 'password'} placeholder={type === 'claude_api' ? 'sk-ant-...' : 'Token'} /><button type="button" onClick={() => setShowCreds(!showCreds)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">{showCreds ? <EyeOff size={14} /> : <Eye size={14} />}</button></div></div>
-          {type !== 'claude_api' && <div><Label>Base URL</Label><Input value={baseUrl} onChange={setBaseUrl} placeholder={type === 'github' ? 'https://api.github.com' : 'https://...'} /></div>}
-          {type === 'github' && <div><Label>Owner / Organization</Label><Input value={owner} onChange={setOwner} placeholder="org or username" /><p className="text-[11px] text-slate-400 mt-1">Repo is selected per task</p></div>}
-          {type === 'claude_api' && <div><Label>Model</Label><select value={model} onChange={e => setModel(e.target.value)} className="w-full bg-[var(--bg-input)] border border-slate-300 dark:border-slate-600/60 rounded-lg px-3 py-2 text-[13px] text-slate-900 dark:text-slate-100"><option value="claude-sonnet-4-6">Claude Sonnet 4.6</option><option value="claude-opus-4-7">Claude Opus 4.7</option></select></div>}
-          {error && <div className="flex items-center gap-2 text-[12px] text-red-500"><AlertCircle size={13} />{error}</div>}
-        </div>
-        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700/40 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ConnectionRow({ conn, onDeleted }: { conn: ConnectionInfo; onDeleted: () => void }) {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => { setEditing(!existing) }, [existing])
 
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700/40 bg-[var(--bg-surface)]">
-      <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800/60 flex items-center justify-center shrink-0">
-        {conn.type === 'claude_api' ? <Bot size={14} className="text-slate-400" /> : <GitBranch size={14} className="text-slate-400" />}
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center`}>
+            <Icon size={18} className="text-white" />
+          </div>
+          <div>
+            <p className="text-[14px] font-semibold text-slate-800 dark:text-slate-100">{title}</p>
+            {existing && !editing && (
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                  (testResult ?? existing.status) === 'connected' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-500 bg-amber-500/10 border-amber-500/20'
+                }`}>{(testResult ?? existing.status) === 'connected' ? '● Connected' : '● Not tested'}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        {existing && !editing && (
+          <div className="flex items-center gap-1">
+            <button onClick={async () => { setTesting(true); try { const r = await onTest(existing.id); setTestResult(r) } catch { setTestResult('error') } finally { setTesting(false) }}}
+              disabled={testing} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              {testing ? <RefreshCw size={12} className="animate-spin" /> : 'Test'}
+            </button>
+            <button onClick={() => setEditing(true)}
+              className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-[#DA7756] hover:bg-[#DA7756]/10 transition-colors">Edit</button>
+            <button onClick={() => { if (confirm('Delete this connection?')) onDelete(existing.id) }}
+              className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">Delete</button>
+          </div>
+        )}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100 truncate">{conn.label}</p>
-        <p className="text-[11px] text-slate-400">{CONN_LABELS[conn.type]?.desc ?? conn.type}</p>
-      </div>
-      {(testResult || conn.status) && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${(testResult ?? conn.status) === 'connected' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-red-500 bg-red-500/10 border-red-500/20'}`}>{(testResult ?? conn.status) === 'connected' ? 'OK' : 'Error'}</span>}
-      <button onClick={async () => { setTesting(true); try { const r = await api.testConnection(conn.id); setTestResult(r.status) } catch { setTestResult('error') } finally { setTesting(false) }}} disabled={testing} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 transition-colors" title="Test">{testing ? <RefreshCw size={13} className="animate-spin" /> : <TestTube size={13} />}</button>
-      <button onClick={async () => { if (!confirm('Delete?')) return; setDeleting(true); try { await api.deleteConnection(conn.id); onDeleted() } catch { setDeleting(false) }}} disabled={deleting} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 transition-colors" title="Delete"><Trash2 size={13} /></button>
-    </div>
+
+      {editing && (
+        <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700/40">
+          {children({ saving, error, setError, setSaving })}
+          {error && <div className="flex items-center gap-2 text-[12px] text-red-500"><AlertCircle size={12} />{error}</div>}
+          <div className="flex justify-end gap-2">
+            {existing && <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>}
+            <Button onClick={() => {}} disabled={saving}>{saving ? 'Saving...' : existing ? 'Update' : 'Save'}</Button>
+          </div>
+        </div>
+      )}
+
+      {!existing && !editing && (
+        <p className="text-[12px] text-slate-400 italic">Not configured — click to set up</p>
+      )}
+    </Card>
   )
 }
 
 function ConnectionsTab() {
   const [connections, setConnections] = useState<ConnectionInfo[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAdd, setShowAdd] = useState(false)
+
+  // GitHub form state
+  const [ghToken, setGhToken] = useState('')
+  const [ghOwner, setGhOwner] = useState('')
+  const [ghShowToken, setGhShowToken] = useState(false)
+
+  // Claude form state
+  const [claudeKey, setClaudeKey] = useState('')
+  const [claudeModel, setClaudeModel] = useState('claude-sonnet-4-6')
+  const [claudeShowKey, setClaudeShowKey] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -216,16 +209,152 @@ function ConnectionsTab() {
   }
   useEffect(() => { load() }, [])
 
+  async function handleTest(id: string): Promise<string> {
+    const r = await api.testConnection(id)
+    await load()
+    return r.status
+  }
+
+  async function handleDelete(id: string) {
+    await api.deleteConnection(id)
+    await load()
+  }
+
+  async function saveGitHub(setSaving: (s: boolean) => void, setError: (e: string) => void) {
+    if (!ghToken.trim()) { setError('GitHub PAT is required'); return }
+    if (!ghOwner.trim()) { setError('Owner / Organization is required'); return }
+    setSaving(true); setError('')
+    try {
+      const existing = connections.find(c => c.type === 'github')
+      if (existing) await api.deleteConnection(existing.id)
+      await api.createConnection({
+        type: 'github', auth_type: 'pat', credentials: ghToken.trim(),
+        base_url: 'https://api.github.com', extra_config: { owner: ghOwner.trim() }, label: 'GitHub',
+      })
+      setGhToken(''); await load()
+    } catch (e: any) { setError(e.response?.data?.detail || 'Failed') }
+    finally { setSaving(false) }
+  }
+
+  async function saveClaude(setSaving: (s: boolean) => void, setError: (e: string) => void) {
+    if (!claudeKey.trim()) { setError('API key is required'); return }
+    setSaving(true); setError('')
+    try {
+      const existing = connections.find(c => c.type === 'claude_api')
+      if (existing) await api.deleteConnection(existing.id)
+      await api.createConnection({
+        type: 'claude_api', auth_type: 'api_key', credentials: claudeKey.trim(),
+        extra_config: { model: claudeModel }, label: 'Claude API',
+      })
+      setClaudeKey(''); await load()
+    } catch (e: any) { setError(e.response?.data?.detail || 'Failed') }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return <div className="flex justify-center py-8"><RefreshCw size={18} className="animate-spin text-slate-400" /></div>
+
+  const ghConn = connections.find(c => c.type === 'github')
+  const claudeConn = connections.find(c => c.type === 'claude_api')
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Connections</p>
-        <button onClick={() => setShowAdd(true)} className="text-[12px] font-semibold text-[#DA7756] hover:text-[#E0836A] flex items-center gap-1"><Plus size={13} /> Add</button>
-      </div>
-      {loading ? <div className="flex justify-center py-8"><RefreshCw size={18} className="animate-spin text-slate-400" /></div>
-       : connections.length === 0 ? <Card className="text-center py-6"><p className="text-[12px] text-slate-400">No connections. Add Claude API and GitHub to start.</p></Card>
-       : <div className="space-y-2">{connections.map(c => <ConnectionRow key={c.id} conn={c} onDeleted={load} />)}</div>}
-      {showAdd && <AddConnectionForm onClose={() => setShowAdd(false)} onCreated={load} />}
+    <div className="space-y-4">
+      <p className="text-[12px] text-slate-500">Configure your GitHub and Claude API connections. Both are required to run the AI agent.</p>
+
+      {/* GitHub */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-slate-800 dark:bg-slate-700 flex items-center justify-center">
+              <GitBranch size={18} className="text-white" />
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold text-slate-800 dark:text-slate-100">GitHub</p>
+              <p className="text-[11px] text-slate-400">Pull tasks, clone repos, create PRs, monitor pipelines</p>
+            </div>
+          </div>
+          {ghConn && (
+            <div className="flex items-center gap-1">
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${ghConn.status === 'connected' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-500 bg-amber-500/10 border-amber-500/20'}`}>
+                {ghConn.status === 'connected' ? '● Connected' : '● Pending'}
+              </span>
+              <button onClick={() => handleTest(ghConn.id)} className="px-2 py-1 rounded text-[11px] text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Test</button>
+              <button onClick={() => handleDelete(ghConn.id)} className="px-2 py-1 rounded text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">Remove</button>
+            </div>
+          )}
+        </div>
+        {!ghConn && (
+          <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700/40">
+            <div>
+              <Label>Personal Access Token (PAT)</Label>
+              <div className="relative">
+                <Input value={ghToken} onChange={setGhToken} type={ghShowToken ? 'text' : 'password'} placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+                <button type="button" onClick={() => setGhShowToken(!ghShowToken)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  {ghShowToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">Create at <a href="https://github.com/settings/tokens/new" target="_blank" className="text-[#DA7756] hover:underline">github.com/settings/tokens</a> → select <strong>repo</strong> + <strong>workflow</strong> scopes</p>
+            </div>
+            <div>
+              <Label>Owner / Organization</Label>
+              <Input value={ghOwner} onChange={setGhOwner} placeholder="e.g. JiteshSonkusare or my-org" />
+              <p className="text-[10px] text-slate-400 mt-1">Your GitHub username or organization name. Repository is selected per task.</p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => saveGitHub(s => {}, e => {})} disabled={!ghToken.trim() || !ghOwner.trim()}>Save GitHub Connection</Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Claude API */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-[#DA7756] flex items-center justify-center">
+              <Bot size={18} className="text-white" />
+            </div>
+            <div>
+              <p className="text-[14px] font-semibold text-slate-800 dark:text-slate-100">Claude API</p>
+              <p className="text-[11px] text-slate-400">Powers the AI agent for planning, coding, and reviewing</p>
+            </div>
+          </div>
+          {claudeConn && (
+            <div className="flex items-center gap-1">
+              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${claudeConn.status === 'connected' ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-500 bg-amber-500/10 border-amber-500/20'}`}>
+                {claudeConn.status === 'connected' ? '● Connected' : '● Pending'}
+              </span>
+              <button onClick={() => handleTest(claudeConn.id)} className="px-2 py-1 rounded text-[11px] text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Test</button>
+              <button onClick={() => handleDelete(claudeConn.id)} className="px-2 py-1 rounded text-[11px] text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10">Remove</button>
+            </div>
+          )}
+        </div>
+        {!claudeConn && (
+          <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700/40">
+            <div>
+              <Label>Anthropic API Key</Label>
+              <div className="relative">
+                <Input value={claudeKey} onChange={setClaudeKey} type={claudeShowKey ? 'text' : 'password'} placeholder="sk-ant-api03-xxxxxxxxxxxx" />
+                <button type="button" onClick={() => setClaudeShowKey(!claudeShowKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  {claudeShowKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">Get your key from <a href="https://console.anthropic.com/settings/keys" target="_blank" className="text-[#DA7756] hover:underline">console.anthropic.com</a></p>
+            </div>
+            <div>
+              <Label>Default Model</Label>
+              <select value={claudeModel} onChange={e => setClaudeModel(e.target.value)}
+                className="w-full bg-[var(--bg-input)] border border-slate-300 dark:border-slate-600/60 rounded-lg px-3 py-2 text-[13px] text-slate-900 dark:text-slate-100">
+                <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (recommended)</option>
+                <option value="claude-opus-4-7">Claude Opus 4.7 (most capable)</option>
+                <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (fastest, cheapest)</option>
+              </select>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => saveClaude(s => {}, e => {})} disabled={!claudeKey.trim()}>Save Claude Connection</Button>
+            </div>
+          </div>
+        )}
+      </Card>
     </div>
   )
 }
