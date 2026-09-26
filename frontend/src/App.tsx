@@ -9,7 +9,6 @@ import PullTasksPage from './pages/PullTasksPage'
 import TaskProgressPage from './pages/TaskProgressPage'
 import DashboardPage from './pages/DashboardPage'
 import SettingsPage from './pages/SettingsPage'
-import BatchRunPage from './pages/BatchRunPage'
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
 
@@ -43,7 +42,6 @@ function AppRoutes() {
         <Route path="tasks" element={<TasksPage />} />
         <Route path="tasks/pull" element={<PullTasksPage />} />
         <Route path="tasks/:taskId/progress" element={<TaskProgressPage />} />
-        <Route path="batch-run" element={<BatchRunPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
