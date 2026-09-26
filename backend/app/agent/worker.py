@@ -163,6 +163,10 @@ async def plan_node(state: WorkflowState) -> WorkflowState:
     await prog.create_run_step(run_id, "plan")
     await _update_task_status(state["task_id"], "ready")
 
+    plan_skill = state.get("plan_skill", "")
+    skill_msg = f"Using plan skill instructions" if plan_skill else "No plan skill configured — using default AI reasoning"
+    await prog.append_reasoning(run_id, "plan", {"content": f"🔧 {skill_msg}", "timestamp": datetime.now(timezone.utc).isoformat()})
+
     system, user_msg = build_plan_prompt(state["title"], state["body"], state.get("plan_skill", ""))
     tools = [t for t in AGENT_TOOLS if t["name"] in ("read_file", "list_files", "search_files")]
 
@@ -199,6 +203,10 @@ async def develop_node(state: WorkflowState) -> WorkflowState:
     await prog.create_run_step(run_id, "develop")
     await _update_task_status(state["task_id"], "in_progress")
 
+    develop_skill = state.get("develop_skill", "")
+    skill_msg = f"Using develop skill instructions for coding" if develop_skill else "No develop skill configured — using default AI reasoning"
+    await prog.append_reasoning(run_id, "develop", {"content": f"🔧 {skill_msg}", "timestamp": datetime.now(timezone.utc).isoformat()})
+
     system, user_msg = build_develop_prompt(state["title"], state["plan_text"], state.get("develop_skill", ""))
     tools = [t for t in AGENT_TOOLS if t["name"] in (
         "read_file", "write_file", "list_files", "search_files", "run_command",
@@ -225,6 +233,10 @@ async def review_node(state: WorkflowState) -> WorkflowState:
     await prog.update_run(run_id, current_step="review")
     await prog.create_run_step(run_id, "review")
     await _update_task_status(state["task_id"], "in_review")
+
+    review_skill = state.get("review_skill", "")
+    skill_msg = f"Using review skill instructions for code review" if review_skill else "No review skill configured — using default AI reasoning"
+    await prog.append_reasoning(run_id, "review", {"content": f"🔧 {skill_msg}", "timestamp": datetime.now(timezone.utc).isoformat()})
 
     system, user_msg = build_review_prompt(state["title"], state.get("review_skill", ""))
     tools = [t for t in AGENT_TOOLS if t["name"] in (

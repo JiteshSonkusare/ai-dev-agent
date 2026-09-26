@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
-import { Settings, Zap, Sun, Moon, ListTodo, LogOut, BarChart3, ChevronDown, Building2, User } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Settings, Zap, Sun, Moon, ListTodo, LogOut, BarChart3, ChevronDown, Building2, User, Activity } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -9,6 +9,29 @@ const navItems = [
   { to: '/tasks',      label: 'My Tasks',  icon: ListTodo },
   { to: '/settings',   label: 'Settings',  icon: Settings },
 ]
+
+function ProgressNavItem() {
+  const navigate = useNavigate()
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const check = () => setActiveTaskId(localStorage.getItem('cc_active_task'))
+    check()
+    const interval = setInterval(check, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  if (!activeTaskId) return null
+
+  return (
+    <button
+      onClick={() => navigate(`/tasks/${activeTaskId}/progress`)}
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] font-medium w-full text-left bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 transition-all hover:bg-emerald-500/15"
+    >
+      <Activity size={15} className="animate-pulse" /> Progress
+    </button>
+  )
+}
 
 export default function Layout() {
   const { dark, toggle } = useTheme()
@@ -44,6 +67,9 @@ export default function Layout() {
               <Icon size={15} />{label}
             </NavLink>
           ))}
+
+          {/* Progress — shows when a task is running */}
+          <ProgressNavItem />
         </div>
 
         {/* Footer — theme only */}

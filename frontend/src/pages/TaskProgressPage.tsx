@@ -251,9 +251,9 @@ export default function TaskProgressPage() {
   // Stop polling when task is terminal
   const isTerminal = data?.run?.status && ['done', 'error', 'interrupted', 'failed'].includes(data.run.status)
 
+  // Clear active task from sidebar when done
   useEffect(() => {
-    if (!taskId || isTerminal) return
-    // Polling is handled by the first useEffect
+    if (isTerminal) localStorage.removeItem('cc_active_task')
   }, [isTerminal])
 
   if (loading) {
