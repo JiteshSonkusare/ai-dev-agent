@@ -507,7 +507,7 @@ export default function TaskProgressPage() {
     <div className="flex flex-col h-[calc(100vh-7.5rem)]">
       {/* ── Header ───────────────────────────────────────────────── */}
       <div className="flex items-start gap-3 pb-4 border-b border-slate-200 dark:border-slate-700/40">
-        <button onClick={() => navigate('/tasks')}
+        <button onClick={() => navigate('/running-jobs')}
           className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors mt-0.5">
           <ArrowLeft size={18} />
         </button>

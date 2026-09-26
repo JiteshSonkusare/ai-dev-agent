@@ -82,7 +82,7 @@ export default function RunningJobsPage() {
           {jobs.map(job => (
             <button
               key={job.id}
-              onClick={() => navigate(`/tasks/${job.id}/progress`)}
+              onClick={() => navigate(`/running-jobs/${job.id}`)}
               className="w-full text-left rounded-xl px-4 py-3.5 bg-[var(--bg-card)] border border-slate-200 dark:border-slate-700/40 hover:border-blue-400/40 hover:shadow-sm transition-all group"
             >
               <div className="flex items-center gap-3">

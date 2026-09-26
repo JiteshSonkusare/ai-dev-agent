@@ -473,7 +473,7 @@ export default function TasksPage() {
                 key={task.id}
                 onClick={() => {
                   if (task.status === 'in_progress') {
-                    navigate(`/tasks/${task.id}/progress`)
+                    navigate(`/running-jobs/${task.id}`)
                   } else {
                     setSelectedTask(task)
                   }

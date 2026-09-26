@@ -285,7 +285,7 @@ export default function PullTasksPage() {
                     setStartingId(task.id)
                     try {
                       await api.startTask(task.id)
-                      navigate(`/tasks/${task.id}/progress`)
+                      navigate(`/running-jobs/${task.id}`)
                     } catch { setStartingId(null) }
                   }}
                 >

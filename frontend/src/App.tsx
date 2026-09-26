@@ -42,8 +42,8 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="tasks/pull" element={<PullTasksPage />} />
-        <Route path="tasks/:taskId/progress" element={<TaskProgressPage />} />
         <Route path="running-jobs" element={<RunningJobsPage />} />
+        <Route path="running-jobs/:taskId" element={<TaskProgressPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
