@@ -184,14 +184,17 @@ async def plan_node(state: WorkflowState) -> WorkflowState:
     )
 
     plan_text = result.get("final_response", "")
+    loop_error = result.get("final_response", "") if result["status"] != "completed" else ""
     await prog.complete_step(run_id, "plan",
-                             status="completed" if result["status"] == "completed" else "failed")
+                             status="completed" if result["status"] == "completed" else "failed",
+                             error=loop_error)
     await prog.update_step(run_id, "plan", output={"plan": plan_text})
     await _update_tokens(run_id, result)
 
     if result["status"] != "completed":
-        await _log(task_id, run_id, "error", "Plan step failed", "plan")
-        return {**state, "status": "error", "error": "Plan step failed"}
+        err_msg = f"Plan step failed: {loop_error[:300]}"
+        await _log(task_id, run_id, "error", err_msg, "plan")
+        return {**state, "status": "error", "error": err_msg}
     await _log(task_id, run_id, "info", "Plan step completed", "plan")
     return {**state, "plan_text": plan_text}
 
@@ -230,13 +233,16 @@ async def develop_node(state: WorkflowState) -> WorkflowState:
         on_progress=_make_cb(run_id, "develop"),
     )
 
+    loop_error = result.get("final_response", "") if result["status"] != "completed" else ""
     await prog.complete_step(run_id, "develop",
-                             status="completed" if result["status"] == "completed" else "failed")
+                             status="completed" if result["status"] == "completed" else "failed",
+                             error=loop_error)
     await _update_tokens(run_id, result)
 
     if result["status"] != "completed":
-        await _log(task_id, run_id, "error", "Develop step failed", "develop")
-        return {**state, "status": "error", "error": "Develop step failed"}
+        err_msg = f"Develop step failed: {loop_error[:300]}"
+        await _log(task_id, run_id, "error", err_msg, "develop")
+        return {**state, "status": "error", "error": err_msg}
     await _log(task_id, run_id, "info", "Develop step completed", "develop")
     return state
 

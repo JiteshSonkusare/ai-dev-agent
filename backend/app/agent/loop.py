@@ -67,6 +67,14 @@ async def run_agent_loop(
                 "total_tokens_in": total_in,
                 "total_tokens_out": total_out,
             }
+        except Exception as e:
+            logger.error(f"Unexpected error in agent loop at iteration {iteration}: {e}")
+            return {
+                "status": "error",
+                "final_response": f"Agent loop error: {str(e)}",
+                "total_tokens_in": total_in,
+                "total_tokens_out": total_out,
+            }
 
         # Track tokens
         total_in += response.usage.input_tokens
