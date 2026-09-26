@@ -167,7 +167,7 @@ function TaskDrawer({ task, onClose }: { task: TaskItem; onClose: () => void }) 
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40" />
 
       {/* Drawer */}
       <div className="fixed top-0 right-0 h-full w-[420px] max-w-[90vw] bg-[var(--bg-surface)] border-l border-slate-200 dark:border-slate-700/50 shadow-2xl z-50 flex flex-col animate-slide-in">

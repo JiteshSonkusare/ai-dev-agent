@@ -160,7 +160,7 @@ function AddConnectionForm({ onClose, onCreated }: { onClose: () => void; onCrea
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-[var(--bg-card)] rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-700/40">
           <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">Add Connection</h3>
@@ -262,7 +262,7 @@ function SkillEditor({ skill, skillType, onSaved, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-[var(--bg-card)] rounded-xl border border-slate-200 dark:border-slate-700/50 shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-700/40">
           <h3 className="text-[15px] font-bold text-slate-900 dark:text-slate-100">{skill ? 'Edit' : 'Add'} {SKILL_META[skillType].label}</h3>
