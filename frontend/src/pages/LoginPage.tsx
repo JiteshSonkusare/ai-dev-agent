@@ -193,31 +193,60 @@ function ErrorMsg({ msg }: { msg: string }) {
 
 // ── Right Panel Info (shown when login is active) ────────────────────────────
 
+const WORKFLOW_STEPS = [
+  { icon: '📋', label: 'Fetch Task', desc: 'Pull assigned issues from GitHub' },
+  { icon: '🧠', label: 'Plan', desc: 'AI analyzes codebase & creates implementation plan' },
+  { icon: '⚡', label: 'Develop', desc: 'AI writes code following skill instructions' },
+  { icon: '🔍', label: 'Review', desc: 'AI self-reviews against coding standards' },
+  { icon: '🚀', label: 'Commit & PR', desc: 'Push changes and create pull request' },
+  { icon: '✅', label: 'Pipeline', desc: 'Monitor CI/CD and close issue' },
+]
+
 function InfoPanel() {
   return (
-    <div className="flex flex-col justify-center items-center h-full px-12 text-center">
-      <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-[#DA7756]/20 to-[#DA7756]/5 border border-[#DA7756]/15 flex items-center justify-center mb-8">
-        <Zap size={36} className="text-[#DA7756]" />
+    <div className="flex flex-col justify-center h-full px-12">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#DA7756] to-[#C86A48] flex items-center justify-center">
+          <Zap size={20} className="text-white" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">AI DevAgent</h2>
+          <p className="text-[11px] text-slate-400">Agentic AI Development Platform</p>
+        </div>
       </div>
-      <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">AI-Powered Development</h2>
-      <p className="text-sm text-slate-500 max-w-xs leading-relaxed mb-8">
-        Automate your development workflow with AI agents. From planning to code review — orchestrated by Claude.
-      </p>
-      <div className="space-y-3 text-left max-w-xs w-full">
-        <FeatureItem text="Multi-step workflow engine (plan, dev, review, test)" />
-        <FeatureItem text="Custom skills mapped to each workflow step" />
-        <FeatureItem text="Integrated with Jira, Azure DevOps, GitHub" />
-        <FeatureItem text="Human-in-the-loop gates for quality control" />
-      </div>
-    </div>
-  )
-}
 
-function FeatureItem({ text }: { text: string }) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <CheckCircle size={14} className="text-emerald-500 mt-0.5 shrink-0" />
-      <p className="text-[13px] text-slate-600 dark:text-slate-300">{text}</p>
+      <p className="text-[13px] text-slate-500 leading-relaxed mb-8 max-w-sm">
+        An autonomous AI agent that executes the full software development lifecycle — from GitHub issue to deployed code — with human oversight at critical gates.
+      </p>
+
+      {/* Workflow Flow */}
+      <div className="space-y-0 max-w-sm">
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Agent Workflow</p>
+        {WORKFLOW_STEPS.map((step, i) => (
+          <div key={step.label} className="flex gap-3">
+            {/* Rail */}
+            <div className="flex flex-col items-center">
+              <div className="w-8 h-8 rounded-lg bg-[#DA7756]/10 border border-[#DA7756]/20 flex items-center justify-center shrink-0">
+                <span className="text-[14px]">{step.icon}</span>
+              </div>
+              {i < WORKFLOW_STEPS.length - 1 && (
+                <div className="w-0.5 flex-1 min-h-[12px] bg-[#DA7756]/20" />
+              )}
+            </div>
+            {/* Content */}
+            <div className="pb-4">
+              <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 leading-snug">{step.label}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">{step.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Gates callout */}
+      <div className="mt-4 p-3 rounded-lg bg-amber-500/5 border border-amber-500/15 max-w-sm">
+        <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">🛡️ Human-in-the-loop gates</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">Developer approves the plan before coding starts, and reviews the PR before merging.</p>
+      </div>
     </div>
   )
 }
