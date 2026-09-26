@@ -408,12 +408,15 @@ export const api = {
   deleteUser: (userId: string) =>
     http.delete(`/auth/admin/users/${userId}`).then(r => r.data),
 
-  // Connections (user-scoped)
+  // Connections
   listConnections: () =>
     http.get<ConnectionInfo[]>('/connections').then(r => r.data),
 
-  createConnection: (payload: CreateConnectionPayload) =>
-    http.post('/connections', payload).then(r => r.data),
+  createGitHubConnection: (url: string, token: string) =>
+    http.post('/connections/github', { url, token }).then(r => r.data),
+
+  createClaudeConnection: (api_key: string, model: string) =>
+    http.post('/connections/claude', { api_key, model }).then(r => r.data),
 
   deleteConnection: (connId: string) =>
     http.delete(`/connections/${connId}`).then(r => r.data),
@@ -454,9 +457,10 @@ export const api = {
   pullTasks: (sourceType: string = 'all', sourceId?: string) =>
     http.post<TaskItem[]>('/tasks/pull', { source_type: sourceType, source_id: sourceId }).then(r => r.data),
 
-  listTasks: (status?: string, repo?: string) => {
+  listTasks: (status?: string, repo?: string, excludeStatus?: string) => {
     const params = new URLSearchParams()
     if (status) params.append('status', status)
+    if (excludeStatus) params.append('exclude_status', excludeStatus)
     if (repo) params.append('repo', repo)
     const qs = params.toString()
     return http.get<TaskItem[]>(`/tasks${qs ? `?${qs}` : ''}`).then(r => r.data)

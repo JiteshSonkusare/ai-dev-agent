@@ -383,6 +383,7 @@ async def pull_tasks(
 @router.get("/tasks", response_model=List[TaskResponse])
 async def list_tasks(
     status: Optional[str] = None,
+    exclude_status: Optional[str] = None,
     repo: Optional[str] = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -390,6 +391,8 @@ async def list_tasks(
     query = select(Task).where(Task.user_id == user.id)
     if status:
         query = query.where(Task.status == status)
+    if exclude_status:
+        query = query.where(Task.status != exclude_status)
     if repo:
         query = query.where(Task.repo_name == repo)
     query = query.order_by(Task.pulled_at.desc())

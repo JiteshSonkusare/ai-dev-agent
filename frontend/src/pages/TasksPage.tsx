@@ -291,8 +291,7 @@ export default function TasksPage() {
   async function loadTasks() {
     setLoading(true)
     try {
-      const all = await api.listTasks()
-      setTasks(all.filter(t => t.status !== 'open'))
+      setTasks(await api.listTasks(undefined, undefined, 'open'))
     } catch {
       setTasks([])
     } finally {

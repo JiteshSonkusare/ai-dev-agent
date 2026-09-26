@@ -197,22 +197,6 @@ function ConnectionsTab() {
   const [ghUrl, setGhUrl] = useState('')
   const [ghShowToken, setGhShowToken] = useState(false)
 
-  // Parse owner + base URL from GitHub URL
-  function parseGitHubUrl(url: string): { owner: string; baseUrl: string } {
-    const trimmed = url.trim().replace(/\/+$/, '')
-    try {
-      const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
-      const owner = parsed.pathname.split('/').filter(Boolean)[0] || ''
-      const isEnterprise = parsed.hostname !== 'github.com'
-      const baseUrl = isEnterprise ? `${parsed.origin}/api/v3` : 'https://api.github.com'
-      return { owner, baseUrl }
-    } catch {
-      return { owner: trimmed, baseUrl: 'https://api.github.com' }
-    }
-  }
-
-  const ghParsed = parseGitHubUrl(ghUrl)
-
   // Claude form state
   const [claudeKey, setClaudeKey] = useState('')
   const [claudeModel, setClaudeModel] = useState('claude-sonnet-4-6')
@@ -238,15 +222,10 @@ function ConnectionsTab() {
 
   async function saveGitHub(setSaving: (s: boolean) => void, setError: (e: string) => void) {
     if (!ghToken.trim()) { setError('GitHub PAT is required'); return }
-    if (!ghParsed.owner) { setError('GitHub URL is required'); return }
+    if (!ghUrl.trim()) { setError('GitHub URL is required'); return }
     setSaving(true); setError('')
     try {
-      const existing = connections.find(c => c.type === 'github')
-      if (existing) await api.deleteConnection(existing.id)
-      await api.createConnection({
-        type: 'github', auth_type: 'pat', credentials: ghToken.trim(),
-        base_url: ghParsed.baseUrl, extra_config: { owner: ghParsed.owner }, label: 'GitHub',
-      })
+      await api.createGitHubConnection(ghUrl.trim(), ghToken.trim())
       setGhToken(''); setGhUrl(''); await load()
     } catch (e: any) { setError(e.response?.data?.detail || 'Failed') }
     finally { setSaving(false) }
@@ -256,12 +235,7 @@ function ConnectionsTab() {
     if (!claudeKey.trim()) { setError('API key is required'); return }
     setSaving(true); setError('')
     try {
-      const existing = connections.find(c => c.type === 'claude_api')
-      if (existing) await api.deleteConnection(existing.id)
-      await api.createConnection({
-        type: 'claude_api', auth_type: 'api_key', credentials: claudeKey.trim(),
-        extra_config: { model: claudeModel }, label: 'Claude API',
-      })
+      await api.createClaudeConnection(claudeKey.trim(), claudeModel)
       setClaudeKey(''); await load()
     } catch (e: any) { setError(e.response?.data?.detail || 'Failed') }
     finally { setSaving(false) }
@@ -313,17 +287,12 @@ function ConnectionsTab() {
             <div>
               <Label>GitHub URL</Label>
               <Input value={ghUrl} onChange={setGhUrl} placeholder="https://github.com/JiteshSonkusare" />
-              {ghParsed.owner && (
-                <p className="text-[10px] text-emerald-500 mt-1 flex items-center gap-1">
-                  <CheckCircle size={10} /> Owner: <strong>{ghParsed.owner}</strong> · API: {ghParsed.baseUrl}
-                </p>
-              )}
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-[10px] text-slate-400 mt-1">
                 Public: <code className="text-[10px]">https://github.com/username</code> · Enterprise: <code className="text-[10px]">https://company.ghe.com/org</code>
               </p>
             </div>
             <div className="flex justify-end">
-              <Button onClick={() => saveGitHub(s => {}, e => {})} disabled={!ghToken.trim() || !ghParsed.owner}>Save GitHub Connection</Button>
+              <Button onClick={() => saveGitHub(s => {}, e => {})} disabled={!ghToken.trim() || !ghUrl.trim()}>Save GitHub Connection</Button>
             </div>
           </div>
         )}

@@ -1,4 +1,5 @@
 from typing import List
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -13,13 +14,16 @@ from app.api.deps import get_current_user
 router = APIRouter()
 
 
-class CreateConnectionPayload(BaseModel):
-    type: str
-    auth_type: str
-    credentials: str
-    base_url: str = ""
-    extra_config: dict = {}
-    label: str = ""
+# ── Schemas ──────────────────────────────────────────────────────────────────
+
+class GitHubConnectionRequest(BaseModel):
+    url: str       # e.g. https://github.com/JiteshSonkusare or https://dnb.ghe.com/ContactCenter
+    token: str     # GitHub PAT
+
+
+class ClaudeConnectionRequest(BaseModel):
+    api_key: str
+    model: str = "claude-sonnet-4-6"
 
 
 class ConnectionInfo(BaseModel):
@@ -32,24 +36,23 @@ class ConnectionInfo(BaseModel):
     label: str
 
 
-@router.post("/connections", response_model=ConnectionInfo)
-async def create_connection(
-    payload: CreateConnectionPayload,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    conn = Connection(
-        user_id=user.id,
-        type=payload.type,
-        auth_type=payload.auth_type,
-        credentials_encrypted=encrypt(payload.credentials),
-        base_url=payload.base_url,
-        extra_config=payload.extra_config,
-        label=payload.label or payload.type,
-    )
-    db.add(conn)
-    await db.commit()
-    await db.refresh(conn)
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _parse_github_url(url: str) -> dict:
+    """Parse GitHub URL to extract owner and API base URL."""
+    trimmed = url.strip().rstrip("/")
+    if not trimmed.startswith("http"):
+        trimmed = f"https://{trimmed}"
+
+    parsed = urlparse(trimmed)
+    owner = parsed.path.strip("/").split("/")[0] if parsed.path.strip("/") else ""
+    is_enterprise = parsed.hostname != "github.com"
+    base_url = f"{parsed.scheme}://{parsed.hostname}/api/v3" if is_enterprise else "https://api.github.com"
+
+    return {"owner": owner, "base_url": base_url}
+
+
+def _to_info(conn: Connection) -> ConnectionInfo:
     return ConnectionInfo(
         id=conn.id, type=conn.type, auth_type=conn.auth_type,
         base_url=conn.base_url, extra_config=conn.extra_config or {},
@@ -57,22 +60,85 @@ async def create_connection(
     )
 
 
+# ── Endpoints ────────────────────────────────────────────────────────────────
+
+@router.post("/connections/github", response_model=ConnectionInfo)
+async def create_github_connection(
+    req: GitHubConnectionRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create or replace GitHub connection. Backend parses URL to extract owner + API base."""
+    if not req.token.strip():
+        raise HTTPException(400, "GitHub PAT token is required")
+    if not req.url.strip():
+        raise HTTPException(400, "GitHub URL is required")
+
+    parsed = _parse_github_url(req.url)
+    if not parsed["owner"]:
+        raise HTTPException(400, "Could not extract owner from URL. Use format: https://github.com/username")
+
+    # Delete existing GitHub connection for this user
+    existing = await db.execute(
+        select(Connection).where(Connection.user_id == user.id, Connection.type == "github")
+    )
+    for old in existing.scalars().all():
+        await db.delete(old)
+
+    conn = Connection(
+        user_id=user.id,
+        type="github",
+        auth_type="pat",
+        credentials_encrypted=encrypt(req.token.strip()),
+        base_url=parsed["base_url"],
+        extra_config={"owner": parsed["owner"]},
+        label="GitHub",
+    )
+    db.add(conn)
+    await db.commit()
+    await db.refresh(conn)
+    return _to_info(conn)
+
+
+@router.post("/connections/claude", response_model=ConnectionInfo)
+async def create_claude_connection(
+    req: ClaudeConnectionRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create or replace Claude API connection."""
+    if not req.api_key.strip():
+        raise HTTPException(400, "Claude API key is required")
+
+    # Delete existing Claude connection for this user
+    existing = await db.execute(
+        select(Connection).where(Connection.user_id == user.id, Connection.type == "claude_api")
+    )
+    for old in existing.scalars().all():
+        await db.delete(old)
+
+    conn = Connection(
+        user_id=user.id,
+        type="claude_api",
+        auth_type="api_key",
+        credentials_encrypted=encrypt(req.api_key.strip()),
+        base_url="",
+        extra_config={"model": req.model},
+        label="Claude API",
+    )
+    db.add(conn)
+    await db.commit()
+    await db.refresh(conn)
+    return _to_info(conn)
+
+
 @router.get("/connections", response_model=List[ConnectionInfo])
 async def list_connections(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Connection).where(Connection.user_id == user.id)
-    )
-    return [
-        ConnectionInfo(
-            id=c.id, type=c.type, auth_type=c.auth_type,
-            base_url=c.base_url, extra_config=c.extra_config or {},
-            status=c.status, label=c.label,
-        )
-        for c in result.scalars().all()
-    ]
+    result = await db.execute(select(Connection).where(Connection.user_id == user.id))
+    return [_to_info(c) for c in result.scalars().all()]
 
 
 @router.delete("/connections/{conn_id}")
@@ -113,9 +179,9 @@ async def test_connection(
             )
         elif conn.type == "github":
             import httpx
+            base = conn.base_url or "https://api.github.com"
             async with httpx.AsyncClient() as http:
-                resp = await http.get("https://api.github.com/user",
-                                      headers={"Authorization": f"token {creds}"})
+                resp = await http.get(f"{base}/user", headers={"Authorization": f"token {creds}"})
                 if resp.status_code != 200:
                     status = "error"
                     detail = f"HTTP {resp.status_code}"
