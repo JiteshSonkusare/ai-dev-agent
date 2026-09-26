@@ -210,7 +210,10 @@ async def gate_plan_node(state: WorkflowState) -> WorkflowState:
     await _log(task_id, run_id, "info", "Awaiting plan approval", "plan")
     status = await _wait_for_gate(gate_id)
     await _log(task_id, run_id, "info", f"Plan approval: {status}", "plan")
+    if status == "rejected":
+        return {**state, "plan_gate_status": status, "status": "interrupted", "error": "Plan rejected by user"}
     await prog.update_run(run_id, status="running")
+    return {**state, "plan_gate_status": status}
     return {**state, "plan_gate_status": status}
 
 
@@ -324,6 +327,8 @@ async def gate_merge_node(state: WorkflowState) -> WorkflowState:
     await _log(task_id, run_id, "info", "Awaiting merge approval", "commit_pr")
     status = await _wait_for_gate(gate_id)
     await _log(task_id, run_id, "info", f"Merge approval: {status}", "commit_pr")
+    if status == "rejected":
+        return {**state, "merge_gate_status": status, "status": "interrupted", "error": "Merge rejected by user"}
     await prog.update_run(run_id, status="running")
     return {**state, "merge_gate_status": status}
 
