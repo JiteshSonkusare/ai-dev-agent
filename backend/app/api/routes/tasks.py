@@ -581,3 +581,28 @@ async def reject_gate(
     gate.developer_response = "rejected"
     await db.commit()
     return GateActionResponse(status="rejected")
+
+
+@router.post("/tasks/{task_id}/cancel")
+async def cancel_task(
+    task_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel a running task."""
+    task = await db.get(Task, task_id)
+    if not task or task.user_id != user.id:
+        raise HTTPException(404, "Task not found")
+    if task.status in ("done", "backlog"):
+        raise HTTPException(400, f"Task is '{task.status}', cannot cancel")
+
+    task.status = "interrupted"
+    if task.run_id:
+        run = await db.get(Run, task.run_id)
+        if run and run.status in ("running", "awaiting_gate"):
+            run.status = "interrupted"
+            from datetime import datetime, timezone
+            run.finished_at = datetime.now(timezone.utc)
+            run.error = "Cancelled by user"
+    await db.commit()
+    return {"status": "interrupted"}

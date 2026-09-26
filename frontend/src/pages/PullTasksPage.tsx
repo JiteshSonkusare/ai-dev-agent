@@ -277,21 +277,25 @@ export default function PullTasksPage() {
                 className="p-1.5 rounded-lg text-slate-400 hover:text-[#DA7756] transition-colors shrink-0" title="Open in GitHub">
                 <ExternalLink size={12} />
               </a>
-              <Button
-                className="text-[10px] px-2 py-1"
-                disabled={startingId === task.id}
-                onClick={async () => {
-                  setStartingId(task.id)
-                  try {
-                    await api.startTask(task.id)
-                    localStorage.setItem('cc_active_task', task.id)
-                    navigate(`/tasks/${task.id}/progress`)
-                  } catch { setStartingId(null) }
-                }}
-              >
-                {startingId === task.id ? <RefreshCw size={10} className="animate-spin" /> : <Play size={10} />}
-                Start
-              </Button>
+              {task.status === 'backlog' ? (
+                <Button
+                  className="text-[10px] px-2 py-1"
+                  disabled={startingId === task.id}
+                  onClick={async () => {
+                    setStartingId(task.id)
+                    try {
+                      await api.startTask(task.id)
+                      localStorage.setItem('cc_active_task', task.id)
+                      navigate(`/tasks/${task.id}/progress`)
+                    } catch { setStartingId(null) }
+                  }}
+                >
+                  {startingId === task.id ? <RefreshCw size={10} className="animate-spin" /> : <Play size={10} />}
+                  Start
+                </Button>
+              ) : (
+                <span className="text-[9px] font-semibold uppercase px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-400">{task.status}</span>
+              )}
             </div>
           ))}
         </div>

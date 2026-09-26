@@ -291,10 +291,26 @@ export default function TaskProgressPage() {
               runStatus === 'running' ? 'text-blue-500 bg-blue-500/10 border-blue-500/20' :
               runStatus === 'awaiting_gate' ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' :
               runStatus === 'error' || runStatus === 'failed' ? 'text-red-500 bg-red-500/10 border-red-500/20' :
+              runStatus === 'interrupted' ? 'text-slate-500 bg-slate-500/10 border-slate-400/20' :
               'text-slate-500 bg-slate-500/10 border-slate-400/20'
             }`}>
               {runStatus === 'awaiting_gate' ? 'Awaiting Approval' : runStatus}
             </span>
+            {(runStatus === 'running' || runStatus === 'awaiting_gate') && (
+              <button
+                onClick={async () => {
+                  if (!confirm('Cancel this task? The agent will stop.')) return
+                  try {
+                    await api.cancelTask(taskId!)
+                    localStorage.removeItem('cc_active_task')
+                    api.getTaskProgress(taskId!).then(setData)
+                  } catch {}
+                }}
+                className="text-[10px] font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 px-2 py-0.5 rounded transition-colors"
+              >
+                Cancel
+              </button>
+            )}
           </div>
           <h1 className="text-[16px] font-semibold text-slate-900 dark:text-slate-100 leading-snug">{task.title}</h1>
           <div className="flex items-center gap-3 mt-1">

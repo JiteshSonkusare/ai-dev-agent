@@ -477,6 +477,9 @@ export const api = {
   startTask: (taskId: string) =>
     http.post<{ run_id: string; status: string }>(`/tasks/${taskId}/start`).then(r => r.data),
 
+  cancelTask: (taskId: string) =>
+    http.post<{ status: string }>(`/tasks/${taskId}/cancel`).then(r => r.data),
+
   getTaskProgress: (taskId: string) =>
     http.get<TaskProgress>(`/tasks/${taskId}/progress`).then(r => r.data),
 
