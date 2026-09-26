@@ -194,8 +194,24 @@ function ConnectionsTab() {
 
   // GitHub form state
   const [ghToken, setGhToken] = useState('')
-  const [ghOwner, setGhOwner] = useState('')
+  const [ghUrl, setGhUrl] = useState('')
   const [ghShowToken, setGhShowToken] = useState(false)
+
+  // Parse owner + base URL from GitHub URL
+  function parseGitHubUrl(url: string): { owner: string; baseUrl: string } {
+    const trimmed = url.trim().replace(/\/+$/, '')
+    try {
+      const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`)
+      const owner = parsed.pathname.split('/').filter(Boolean)[0] || ''
+      const isEnterprise = parsed.hostname !== 'github.com'
+      const baseUrl = isEnterprise ? `${parsed.origin}/api/v3` : 'https://api.github.com'
+      return { owner, baseUrl }
+    } catch {
+      return { owner: trimmed, baseUrl: 'https://api.github.com' }
+    }
+  }
+
+  const ghParsed = parseGitHubUrl(ghUrl)
 
   // Claude form state
   const [claudeKey, setClaudeKey] = useState('')
@@ -222,16 +238,16 @@ function ConnectionsTab() {
 
   async function saveGitHub(setSaving: (s: boolean) => void, setError: (e: string) => void) {
     if (!ghToken.trim()) { setError('GitHub PAT is required'); return }
-    if (!ghOwner.trim()) { setError('Owner / Organization is required'); return }
+    if (!ghParsed.owner) { setError('GitHub URL is required'); return }
     setSaving(true); setError('')
     try {
       const existing = connections.find(c => c.type === 'github')
       if (existing) await api.deleteConnection(existing.id)
       await api.createConnection({
         type: 'github', auth_type: 'pat', credentials: ghToken.trim(),
-        base_url: 'https://api.github.com', extra_config: { owner: ghOwner.trim() }, label: 'GitHub',
+        base_url: ghParsed.baseUrl, extra_config: { owner: ghParsed.owner }, label: 'GitHub',
       })
-      setGhToken(''); await load()
+      setGhToken(''); setGhUrl(''); await load()
     } catch (e: any) { setError(e.response?.data?.detail || 'Failed') }
     finally { setSaving(false) }
   }
@@ -295,12 +311,19 @@ function ConnectionsTab() {
               <p className="text-[10px] text-slate-400 mt-1">Create at <a href="https://github.com/settings/tokens/new" target="_blank" className="text-[#DA7756] hover:underline">github.com/settings/tokens</a> → select <strong>repo</strong> + <strong>workflow</strong> scopes</p>
             </div>
             <div>
-              <Label>Owner / Organization</Label>
-              <Input value={ghOwner} onChange={setGhOwner} placeholder="e.g. JiteshSonkusare or my-org" />
-              <p className="text-[10px] text-slate-400 mt-1">Your GitHub username or organization name. Repository is selected per task.</p>
+              <Label>GitHub URL</Label>
+              <Input value={ghUrl} onChange={setGhUrl} placeholder="https://github.com/JiteshSonkusare" />
+              {ghParsed.owner && (
+                <p className="text-[10px] text-emerald-500 mt-1 flex items-center gap-1">
+                  <CheckCircle size={10} /> Owner: <strong>{ghParsed.owner}</strong> · API: {ghParsed.baseUrl}
+                </p>
+              )}
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Public: <code className="text-[10px]">https://github.com/username</code> · Enterprise: <code className="text-[10px]">https://company.ghe.com/org</code>
+              </p>
             </div>
             <div className="flex justify-end">
-              <Button onClick={() => saveGitHub(s => {}, e => {})} disabled={!ghToken.trim() || !ghOwner.trim()}>Save GitHub Connection</Button>
+              <Button onClick={() => saveGitHub(s => {}, e => {})} disabled={!ghToken.trim() || !ghParsed.owner}>Save GitHub Connection</Button>
             </div>
           </div>
         )}
