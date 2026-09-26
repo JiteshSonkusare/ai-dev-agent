@@ -343,9 +343,9 @@ function ConnectionsTab() {
               </select>
             </div>
             <div>
-              <Label>Base URL (optional — for corporate gateway/proxy)</Label>
-              <Input value={claudeBaseUrl} onChange={setClaudeBaseUrl} placeholder="https://gateway.example.com" />
-              <p className="text-[10px] text-slate-400 mt-1">Leave empty for direct Anthropic API. Set for corporate proxy (e.g. gateway.raicode.no)</p>
+              <Label>Base URL (optional — for custom API endpoint)</Label>
+              <Input value={claudeBaseUrl} onChange={setClaudeBaseUrl} placeholder="Leave empty for direct Anthropic API" />
+              <p className="text-[10px] text-slate-400 mt-1">Only set this if you use a custom proxy or gateway. Leave empty for standard Anthropic API.</p>
             </div>
             <div className="flex justify-end">
               <Button onClick={() => saveClaude(s => {}, e => {})} disabled={!claudeKey.trim()}>Save Claude Connection</Button>

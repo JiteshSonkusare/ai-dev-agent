@@ -24,7 +24,7 @@ class GitHubConnectionRequest(BaseModel):
 class ClaudeConnectionRequest(BaseModel):
     api_key: str
     model: str = "claude-sonnet-4-6"
-    base_url: str = ""  # Corporate gateway URL, e.g. https://gateway.raicode.no
+    base_url: str = ""  # Optional: custom API endpoint (leave empty for direct Anthropic API)
 
 
 class ConnectionInfo(BaseModel):
