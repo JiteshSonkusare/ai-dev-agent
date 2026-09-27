@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+*.db
+*.db-shm
+*.db-wal
+venv/
+.venv/
+
+# Env files (secrets)
+src/backend/.env
+src/backend/.env.development
+src/backend/.env.production
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Agent workspace
+agent-workspace/
+
+# Claude
+.claude/
+
+# Old planning files
+CAPSTONE_PLAN.md
+.plan/
+plan/
+INFRASTRUCTURE.md
+src/frontend/.vite/
